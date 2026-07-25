@@ -6,8 +6,24 @@ This experiment tests a small backend skill loop:
 2. It loads the approved menu from `data/menu.json`.
 3. It tells you which skills it has.
 4. During chat, it discovers and calls the right skill.
+5. When an order is created, it stores it in `data/orders.json`.
 
-The Codex skills are `check-menu-item` and `list-food`. The backend exposes them to Gemini as `check_menu_item` and `list_food` function tools.
+The Codex skills are:
+
+- `check-menu-item`
+- `list-food`
+- `list-category-items`
+- `get-item-details`
+- `create-order`
+- `add-item-to-order`
+- `update-order-item`
+- `remove-order-item`
+- `clear-order`
+- `summarize-order`
+- `quote-order-total`
+
+The backend exposes them to Gemini as function tools such as `check_menu_item`,
+`list_food`, `create_order`, and `quote_order_total`.
 
 ## Run
 
@@ -45,6 +61,9 @@ What skills can you do?
 What food do you have?
 Do you have beef pho?
 Do you have Singapore noodles?
+I want 2 egg rolls and one chicken pho.
+Add 2 spring rolls to order_0001.
+What is the total for order_0001?
 ```
 
 When the model selects a skill, the terminal prints:
@@ -60,8 +79,8 @@ user message
   -> backend loads .agents/skills/*/SKILL.md
   -> backend loads data/menu.json
   -> model sees the skills as function tools
-  -> model calls check_menu_item or list_food
-  -> local handler returns the menu result
+  -> model calls a trusted skill such as check_menu_item or create_order
+  -> local handler returns the menu result or stored order
   -> model gives the final reply
 ```
 

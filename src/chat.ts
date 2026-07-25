@@ -13,15 +13,17 @@ if (!apiKey || apiKey === "replace_with_your_key") {
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const menuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
+const ordersPath = fileURLToPath(new URL("../data/orders.json", import.meta.url));
 const agent = await BackendAgent.create({
   apiKey,
   model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
   skillsPath,
-  menuPath
+  menuPath,
+  ordersPath
 });
 
 console.log(`\nBackend agent:\n${agent.describeSkills()}`);
-console.log('\nTry: "What skills can you do?" or "Do you have beef pho?"');
+console.log('\nTry: "What skills can you do?", "Do you have beef pho?", or "I want 2 egg rolls."');
 console.log('Type "exit" to stop.\n');
 
 const terminal = createInterface({ input, output });

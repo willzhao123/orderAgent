@@ -1,6 +1,7 @@
 import { GeminiClient } from "./geminiClient.ts";
 import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
 import { loadMenu } from "./menu.ts";
+import { OrderStore } from "./orders.ts";
 import { SkillExecutor } from "./skillExecutor.ts";
 import { loadSkills, type SkillDefinition } from "./skills.ts";
 
@@ -27,16 +28,18 @@ export class BackendAgent {
     model: string;
     skillsPath: string;
     menuPath: string;
+    ordersPath?: string;
     fetcher?: FetchLike;
   }): Promise<BackendAgent> {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
+    const orderStore = new OrderStore(options.ordersPath ?? "data/orders.json");
 
     return new BackendAgent(
       options.apiKey,
       options.model,
       skills,
-      new SkillExecutor(menu),
+      new SkillExecutor(menu, orderStore),
       options.fetcher ?? fetch
     );
   }
