@@ -9,5 +9,8 @@
   "scripts": {
     "chat": "node --env-file-if-exists=.env --experimental-strip-types src/chat.ts",
     "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
   }
 }

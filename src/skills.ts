@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { parse } from "yaml";
 import { getSkillRegistryEntry } from "./skillRegistry.ts";
 
 export type SkillDefinition = {
@@ -15,45 +16,56 @@ function toFunctionName(skillName: string): string {
   return skillName.replaceAll("-", "_");
 }
 
-function stripQuotes(value: string): string {
-  return value.replace(/^["']|["']$/g, "");
+function splitFrontmatter(sourcePath: string, contents: string): {
+  frontmatter: string;
+  instructions: string;
+} {
+  const match = contents.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
+  if (!match) {
+    throw new Error(`Skill file is missing or has unterminated YAML frontmatter: ${sourcePath}`);
+  }
+
+  return {
+    frontmatter: match[1]!,
+    instructions: match[2]!.trim()
+  };
+}
+
+function readStringMetadata(
+  metadata: unknown,
+  key: string,
+  sourcePath: string
+): string {
+  if (!metadata || typeof metadata !== "object") {
+    throw new Error(`Skill file frontmatter must be a YAML object: ${sourcePath}`);
+  }
+
+  const value = (metadata as Record<string, unknown>)[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Skill file must include a non-empty string ${key}: ${sourcePath}`);
+  }
+
+  return value.trim();
 }
 
 export function parseSkillMarkdown(sourcePath: string, contents: string): SkillDefinition {
-  if (!contents.startsWith("---\n")) {
-    throw new Error(`Skill file is missing YAML frontmatter: ${sourcePath}`);
-  }
+  const { frontmatter, instructions } = splitFrontmatter(sourcePath, contents);
+  const metadata = parse(frontmatter) as unknown;
+  const codexName = readStringMetadata(metadata, "name", sourcePath);
+  const description = readStringMetadata(metadata, "description", sourcePath);
 
-  const end = contents.indexOf("\n---", 4);
-  if (end === -1) {
-    throw new Error(`Skill file has unterminated YAML frontmatter: ${sourcePath}`);
-  }
-
-  const frontmatter = contents.slice(4, end);
-  const metadata = Object.fromEntries(
-    frontmatter
-      .split("\n")
-      .map((line) => line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/))
-      .filter((match): match is RegExpMatchArray => Boolean(match))
-      .map((match) => [match[1]!, stripQuotes(match[2]!.trim())])
-  );
-
-  if (!metadata.name || !metadata.description) {
-    throw new Error(`Skill file must include name and description: ${sourcePath}`);
-  }
-
-  const name = toFunctionName(metadata.name);
+  const name = toFunctionName(codexName);
   const registryEntry = getSkillRegistryEntry(name);
   if (!registryEntry) {
-    throw new Error(`No trusted registry entry exists for skill: ${metadata.name}`);
+    throw new Error(`No trusted registry entry exists for skill: ${codexName}`);
   }
 
   return {
     name,
-    codexName: metadata.name,
-    description: metadata.description,
+    codexName,
+    description,
     parameters: registryEntry.parameters,
-    instructions: contents.slice(end + "\n---".length).trim(),
+    instructions,
     sourcePath
   };
 }
