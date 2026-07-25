@@ -69,7 +69,12 @@ export class BackendAgent {
       this.history.push(modelContent);
       const calls = this.readFunctionCalls(modelContent);
 
-      if (calls.length === 0) return this.readText(response);
+      if (calls.length === 0) {
+        if (step === 0 && this.executor.requiresSkill(message)) {
+          throw new Error("The model answered without calling a required skill.");
+        }
+        return this.readText(response);
+      }
 
       const toolContent: GeminiContent = {
         role: "user",

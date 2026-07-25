@@ -1,4 +1,5 @@
 import type { ApiResponse, FetchLike, GeminiContent } from "./geminiTypes.ts";
+import { skillUsageInstructions } from "./skillRegistry.ts";
 import type { SkillDefinition } from "./skills.ts";
 
 export class GeminiClient {
@@ -57,8 +58,7 @@ export class GeminiClient {
   private createSystemInstruction(): string {
     return [
       "You are a minimal backend agent. Tell the user about your registered skills when asked.",
-      "Use check_menu_item whenever the user asks whether a menu item exists.",
-      "Use list_food whenever the user asks what food or menu items are available.",
+      ...skillUsageInstructions(),
       "Never invent skills or menu results.",
       "Registered skill instructions:",
       ...this.skills.map(

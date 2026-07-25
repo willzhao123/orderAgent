@@ -11,4 +11,4 @@ Inputs:
 
 - `item_name`: The food item the user is asking about.
 
-Return whether the item was found. If it was not found, include the approved menu returned by the handler.
+Return whether the item was found. If it was not found or the request is ambiguous, use the short matches, candidates, or category prompt returned by the handler.

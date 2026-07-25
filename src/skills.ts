@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { SKILL_PARAMETERS } from "./skillSchemas.ts";
+import { getSkillRegistryEntry } from "./skillRegistry.ts";
 
 export type SkillDefinition = {
   name: string;
@@ -43,16 +43,16 @@ export function parseSkillMarkdown(sourcePath: string, contents: string): SkillD
   }
 
   const name = toFunctionName(metadata.name);
-  const parameters = SKILL_PARAMETERS[name];
-  if (!parameters) {
-    throw new Error(`No trusted parameter schema exists for skill: ${metadata.name}`);
+  const registryEntry = getSkillRegistryEntry(name);
+  if (!registryEntry) {
+    throw new Error(`No trusted registry entry exists for skill: ${metadata.name}`);
   }
 
   return {
     name,
     codexName: metadata.name,
     description: metadata.description,
-    parameters,
+    parameters: registryEntry.parameters,
     instructions: contents.slice(end + "\n---".length).trim(),
     sourcePath
   };

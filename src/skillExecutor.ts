@@ -1,34 +1,20 @@
-function normalize(value: string): string {
-  return value.toLowerCase().trim();
-}
+import type { Menu } from "./menu.ts";
+import { getSkillRegistryEntry, messageRequiresSkill } from "./skillRegistry.ts";
 
 export class SkillExecutor {
-  private readonly menu: string[];
+  private readonly menu: Menu;
 
-  constructor(menu: string[]) {
+  constructor(menu: Menu) {
     this.menu = menu;
   }
 
   execute(name: string, input: Record<string, unknown>): Record<string, unknown> {
-    if (name === "check_menu_item") {
-      return this.checkMenuItem(input);
-    }
-
-    if (name === "list_food") {
-      return { items: this.menu };
-    }
-
-    throw new Error(`No trusted handler exists for skill: ${name}`);
+    const registryEntry = getSkillRegistryEntry(name);
+    if (!registryEntry) throw new Error(`No trusted handler exists for skill: ${name}`);
+    return registryEntry.execute({ menu: this.menu }, input);
   }
 
-  private checkMenuItem(input: Record<string, unknown>): Record<string, unknown> {
-    const itemName = String(input.item_name ?? "");
-    const normalizedItemName = normalize(itemName);
-    const match = this.menu.find((item) => normalize(item) === normalizedItemName)
-      ?? this.menu.find((item) => normalize(item).includes(normalizedItemName));
-
-    return match
-      ? { found: true, item: match }
-      : { found: false, item: itemName, approvedMenu: this.menu };
+  requiresSkill(message: string): boolean {
+    return messageRequiresSkill(message);
   }
 }
