@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 
 export type MenuItem = {
+  id: string;
   name: string;
+  aliases: string[];
   category?: string;
   menuHeading?: string;
   categoryDescription?: string;
@@ -9,6 +11,7 @@ export type MenuItem = {
 };
 
 export type MenuCategory = {
+  id: string;
   name: string;
   menuHeading?: string;
   categoryDescription?: string;
@@ -21,18 +24,54 @@ export type Menu = {
   items: MenuItem[];
 };
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function aliasesFor(rawItem: { [key: string]: unknown }, name: string): string[] {
+  const explicitAliases = Array.isArray(rawItem.aliases)
+    ? rawItem.aliases.filter((alias): alias is string => typeof alias === "string")
+    : [];
+  const vietnameseName = typeof rawItem.vietnamese_name === "string"
+    ? [rawItem.vietnamese_name]
+    : [];
+
+  return unique([name, ...vietnameseName, ...explicitAliases]);
+}
+
 function toMenuItem(value: unknown, category?: MenuCategory): MenuItem | null {
   if (typeof value === "string" && value.trim()) {
-    return { name: value.trim(), category: category?.name };
+    const name = value.trim();
+    return {
+      id: slugify([category?.id, name].filter(Boolean).join("-")),
+      name,
+      aliases: [name],
+      category: category?.name
+    };
   }
 
   if (!value || typeof value !== "object") return null;
   const rawItem = value as { name?: unknown; [key: string]: unknown };
   if (typeof rawItem.name !== "string" || !rawItem.name.trim()) return null;
 
+  const name = rawItem.name.trim();
+  const id = typeof rawItem.id === "string" && rawItem.id.trim()
+    ? rawItem.id.trim()
+    : slugify([category?.id, name].filter(Boolean).join("-"));
+
   return {
     ...rawItem,
-    name: rawItem.name.trim(),
+    id,
+    name,
+    aliases: aliasesFor(rawItem, name),
     category: category?.name,
     menuHeading: category?.menuHeading,
     categoryDescription: category?.categoryDescription
@@ -45,7 +84,7 @@ function parseSimpleMenu(items: unknown[]): Menu {
     .filter((item): item is MenuItem => Boolean(item));
 
   return {
-    categories: [{ name: "Menu", items: menuItems }],
+    categories: [{ id: "menu", name: "Menu", items: menuItems }],
     items: menuItems
   };
 }
@@ -65,7 +104,12 @@ function parseStructuredMenu(menu: Record<string, unknown>): Menu {
     const name = typeof rawCategory.name === "string" && rawCategory.name.trim()
       ? rawCategory.name.trim()
       : "Menu";
+    const id = typeof (rawCategory as { id?: unknown }).id === "string"
+      && (rawCategory as { id?: string }).id!.trim()
+      ? (rawCategory as { id: string }).id.trim()
+      : slugify(name);
     const menuCategory: MenuCategory = {
+      id,
       name,
       menuHeading: typeof rawCategory.menu_heading === "string"
         ? rawCategory.menu_heading

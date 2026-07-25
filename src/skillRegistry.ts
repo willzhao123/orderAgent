@@ -25,26 +25,33 @@ function tokens(value: string): string[] {
 
 function summarizeItem(item: MenuItem): Record<string, unknown> {
   const summary: Record<string, unknown> = {
+    id: item.id,
     name: item.name,
     category: item.category
   };
 
-  for (const key of ["vietnamese_name", "description", "price", "prices", "serving", "confidence"]) {
+  for (const key of ["vietnamese_name", "description", "price", "prices", "serving"]) {
     if (item[key] !== undefined) summary[key] = item[key];
   }
 
   return summary;
 }
 
-function summarizeCategory(category: MenuCategory): Record<string, unknown> {
+function summarizeCategoryForVoice(category: MenuCategory): Record<string, unknown> {
   return {
+    id: category.id,
     name: category.name,
     ...(category.menuHeading ? { menuHeading: category.menuHeading } : {}),
     ...(category.categoryDescription
       ? { description: category.categoryDescription }
       : {}),
-    ...(category.modifiers ? { modifiers: category.modifiers } : {}),
-    items: category.items.map(summarizeItem)
+    itemCount: category.items.length,
+    examples: category.items.slice(0, 3).map((item) => ({
+      id: item.id,
+      name: item.name,
+      ...(item.price !== undefined ? { price: item.price } : {}),
+      ...(item.prices !== undefined ? { prices: item.prices } : {})
+    }))
   };
 }
 
@@ -58,7 +65,7 @@ function closeMatches(menuItems: MenuItem[], query: string): MenuItem[] {
 
   return menuItems
     .map((item) => {
-      const itemTokens = tokens(item.name);
+      const itemTokens = item.aliases.flatMap((alias) => tokens(alias));
       const score = itemTokens.filter((token) => queryTokens.has(token)).length;
       return { item, score };
     })
@@ -78,7 +85,10 @@ function validateCheckMenuItemInput(input: Record<string, unknown>): string {
 function checkMenuItem(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const itemName = validateCheckMenuItemInput(input);
   const normalizedItemName = normalize(itemName);
-  const exactMatches = context.menu.items.filter((item) => normalize(item.name) === normalizedItemName);
+  const exactMatches = context.menu.items.filter((item) =>
+    item.id === normalizedItemName ||
+    item.aliases.some((alias) => normalize(alias) === normalizedItemName)
+  );
 
   if (exactMatches.length === 1) {
     return { found: true, ambiguous: false, item: summarizeItem(exactMatches[0]!) };
@@ -95,7 +105,7 @@ function checkMenuItem(context: SkillContext, input: Record<string, unknown>): R
   }
 
   const containedMatches = context.menu.items.filter((item) =>
-    normalize(item.name).includes(normalizedItemName)
+    item.aliases.some((alias) => normalize(alias).includes(normalizedItemName))
   );
   if (containedMatches.length === 1) {
     return { found: true, ambiguous: false, item: summarizeItem(containedMatches[0]!) };
@@ -127,7 +137,8 @@ function listFood(context: SkillContext, input: Record<string, unknown>): Record
   }
 
   return {
-    categories: context.menu.categories.map(summarizeCategory)
+    categories: context.menu.categories.map(summarizeCategoryForVoice),
+    message: "Return these category summaries first. Ask which category the customer wants before listing every item."
   };
 }
 

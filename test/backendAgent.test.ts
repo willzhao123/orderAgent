@@ -123,17 +123,17 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
     found: true,
     ambiguous: false,
     item: {
+      id: "beef-noodle-soup-combo-beef-pho",
       name: "Combo Beef Pho",
       category: "Beef Noodle Soup",
       vietnamese_name: "Pho Dac Biet",
       description: "Combination beef noodle soup.",
-      price: 15,
-      confidence: "medium"
+      price: 15
     }
   });
 });
 
-test("executes list_food and preserves structured menu details", async () => {
+test("executes list_food and returns voice-friendly category summaries", async () => {
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
     requestBodies,
@@ -155,19 +155,22 @@ test("executes list_food and preserves structured menu details", async () => {
   assert.equal(functionResponse.name, "list_food");
 
   const categories = functionResponse.response.categories as Array<{
+    id: string;
     name: string;
-    items: Array<Record<string, unknown>>;
+    itemCount: number;
+    examples: Array<Record<string, unknown>>;
   }>;
   assert.equal(categories.length, 9);
+  assert.equal(functionResponse.response.message, "Return these category summaries first. Ask which category the customer wants before listing every item.");
+  assert.equal(categories[0]!.id, "salads");
   assert.equal(categories[0]!.name, "Salads");
-  assert.deepEqual(categories[0]!.items[0], {
+  assert.equal(categories[0]!.itemCount, 5);
+  assert.deepEqual(categories[0]!.examples[0], {
+    id: "salads-chicken-salad",
     name: "Chicken Salad",
-    category: "Salads",
-    vietnamese_name: "Goi Ga",
-    description: "Cabbage, mint, dried onion, peanut.",
-    price: 14,
-    confidence: "high"
+    price: 14
   });
+  assert.equal("confidence" in categories[0]!.examples[0]!, false);
 });
 
 test("loads menu items from the configured JSON file", async () => {
@@ -190,13 +193,16 @@ test("loads menu items from the configured JSON file", async () => {
   assert.deepEqual(lastFunctionResponse(requestBodies).response, {
     categories: [
       {
+        id: "menu",
         name: "Menu",
-        items: [
-          { name: "tofu pho" },
-          { name: "mango rice" }
+        itemCount: 2,
+        examples: [
+          { id: "tofu-pho", name: "tofu pho" },
+          { id: "mango-rice", name: "mango rice" }
         ]
       }
-    ]
+    ],
+    message: "Return these category summaries first. Ask which category the customer wants before listing every item."
   });
 });
 
@@ -228,6 +234,14 @@ test("returns ambiguity for broad partial item names", async () => {
   assert.equal(response.ambiguous, true);
   assert.equal(response.query, "pho");
   assert.equal((response.matches as unknown[]).length, 5);
+  assert.deepEqual((response.matches as Array<Record<string, unknown>>)[0], {
+    id: "beef-noodle-soup-combo-beef-pho",
+    name: "Combo Beef Pho",
+    category: "Beef Noodle Soup",
+    vietnamese_name: "Pho Dac Biet",
+    description: "Combination beef noodle soup.",
+    price: 15
+  });
   assert.equal("approvedMenu" in response, false);
 });
 
@@ -274,6 +288,32 @@ test("returns ambiguity for duplicate menu names", async () => {
   assert.equal(response.found, false);
   assert.equal(response.ambiguous, true);
   assert.equal((response.matches as unknown[]).length, 3);
+});
+
+test("matches menu aliases, including Vietnamese names", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("check_menu_item", { item_name: "Pho Ga" }),
+      textResponse("Yes, chicken pho is available.")
+    ]
+  });
+
+  await agent.chat("Do you have Pho Ga?");
+
+  const response = lastFunctionResponse(requestBodies).response;
+  assert.deepEqual(response, {
+    found: true,
+    ambiguous: false,
+    item: {
+      id: "beef-noodle-soup-chicken-pho",
+      name: "Chicken Pho",
+      category: "Beef Noodle Soup",
+      vietnamese_name: "Pho Ga",
+      price: 13
+    }
+  });
 });
 
 test("rejects malformed list_food arguments", async () => {

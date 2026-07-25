@@ -5,6 +5,6 @@ description: List every food item on the restaurant's approved menu. Use when a 
 
 # List Food
 
-Use the trusted backend handler to return the full approved menu. Do not invent, omit, or reorder menu items unless the user asks for a different presentation.
+Use the trusted backend handler to return approved menu category summaries for voice-friendly browsing. Do not invent categories or items.
 
-Return the menu items in a concise, user-friendly sentence or list.
+Return the categories and a few examples in a concise, user-friendly sentence or list. Ask which category the customer wants before listing detailed items.
