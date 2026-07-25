@@ -1,0 +1,547 @@
+{
+  "restaurant": {
+    "name": "Haiyen Restaurant",
+    "cuisine": "Vietnamese",
+    "source_image": "/Users/qiren.zhao/menu.webp"
+  },
+  "schema_version": "1.0",
+  "currency": "USD",
+  "extraction": {
+    "method": "manual visual transcription from photo",
+    "date": "2026-07-24",
+    "overall_confidence": "medium",
+    "notes": [
+      "The photo is angled and some small text is blurry or obscured by glare/finger.",
+      "Prices and names marked low confidence should be verified against a clearer menu before customer-facing use.",
+      "Vietnamese names are transcribed without accents where accents were not reliably readable."
+    ]
+  },
+  "categories": [
+    {
+      "name": "Salads",
+      "menu_heading": "SALADS",
+      "items": [
+        {
+          "name": "Chicken Salad",
+          "vietnamese_name": "Goi Ga",
+          "description": "Cabbage, mint, dried onion, peanut.",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Banana Blossom Salad",
+          "vietnamese_name": "Goi Bap Chuoi",
+          "description": "Banana blossom, mint, dried onion, peanut. Choice of pork, shrimp, shrimp or pork, or crab meat.",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Green Papaya and Mango Salad",
+          "vietnamese_name": "Goi Du Du Xoai",
+          "description": "Papaya, mango, carrot, onion, mint, peanut. Choice of pork, shrimp, shrimp or pork, or chicken.",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Lotus Root Salad",
+          "vietnamese_name": "Goi Ngo Sen",
+          "description": "Lotus root, hot mint, onion, cucumber, peanut. Choice of pork, shrimp, or shrimp and pork.",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Beef Salad",
+          "vietnamese_name": "Bo Tai Chanh",
+          "description": "Beef, basil, lemon, bell peppers, onion, peanut. Served with prawn cracker and fish sauce.",
+          "price": 14,
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Beef Noodle Soup",
+      "menu_heading": "BEEF NOODLE SOUP",
+      "category_description": "Served with bean sprouts, basil, lime, jalapeno, cilantro, hoisin sauce and sriracha sauce.",
+      "items": [
+        {
+          "name": "Combo Beef Pho",
+          "vietnamese_name": "Pho Dac Biet",
+          "description": "Combination beef noodle soup.",
+          "price": 15,
+          "confidence": "medium"
+        },
+        {
+          "name": "Eye-round Steak Pho",
+          "vietnamese_name": "Pho Tai",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Eye-round Steak and Brisket Pho",
+          "vietnamese_name": "Pho Tai Nam",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Eye-round Steak and Meatball Pho",
+          "vietnamese_name": "Pho Tai Bo Vien",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Eye-round Steak and Meatball Tendon Pho",
+          "vietnamese_name": "Pho Tai Bo Vien Gan",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Eye-round Steak, Meatball, Tendon, Tripe Pho",
+          "vietnamese_name": "Pho Tai Bo Vien Gan Sach",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Chicken Pho",
+          "vietnamese_name": "Pho Ga",
+          "price": 13,
+          "confidence": "high"
+        },
+        {
+          "name": "Chicken with Bone Pho",
+          "vietnamese_name": "Pho Ga Chat",
+          "price": 15,
+          "confidence": "high"
+        }
+      ],
+      "modifiers": [
+        {
+          "name": "Add noodle, meatball, tendon or tripe",
+          "price": 1.5,
+          "confidence": "medium"
+        },
+        {
+          "name": "Add eye-round steak",
+          "price": 2,
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Vermicelli",
+      "menu_heading": "VERMICELLI - BUN",
+      "category_description": "Served with bean sprout, cucumber, mint, onion, peanut and egg roll.",
+      "items": [
+        {
+          "name": "Grilled Sesame Lemongrass Beef",
+          "vietnamese_name": "Bun Bo Nuong",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Lemongrass Pork",
+          "vietnamese_name": "Bun Heo Nuong",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Pork Meatball",
+          "vietnamese_name": "Bun Nem Nuong",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Shrimp",
+          "vietnamese_name": "Bun Tom Nuong",
+          "price": 16,
+          "confidence": "medium"
+        },
+        {
+          "name": "Hawaiian Leaf Sausage",
+          "vietnamese_name": "Bun La Lot",
+          "price": 16,
+          "confidence": "medium"
+        }
+      ],
+      "modifiers": [
+        {
+          "name": "Add tofu",
+          "price": 2,
+          "confidence": "medium"
+        },
+        {
+          "name": "Add beef or pork",
+          "price": 2,
+          "confidence": "medium"
+        },
+        {
+          "name": "Add shrimp",
+          "price": 3,
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Appetizers",
+      "menu_heading": "APPETIZERS - MON KHAI VI",
+      "items": [
+        {
+          "name": "Egg Rolls",
+          "vietnamese_name": "Cha Gio",
+          "description": "Shrimp, pork, taro, wood ear mushroom, cellophane noodles.",
+          "serving": "3 pieces",
+          "price": 8,
+          "confidence": "high"
+        },
+        {
+          "name": "Beef Kabobs",
+          "vietnamese_name": "Bo Lui",
+          "description": "Honey, soy sauce, garlic, lemongrass and sesame.",
+          "serving": "3 pieces",
+          "price": 6,
+          "confidence": "medium"
+        },
+        {
+          "name": "Spring Rolls",
+          "vietnamese_name": "Goi Cuon",
+          "description": "Shrimp, shrimp and pork, grilled beef, pork sausage.",
+          "serving": "2 pieces",
+          "price": 8,
+          "confidence": "medium"
+        },
+        {
+          "name": "Hawaiian Leaf Sausage",
+          "vietnamese_name": "Bo La Lot",
+          "description": "Beef, pork, garlic and lemongrass.",
+          "serving": "4 pieces",
+          "price": 8,
+          "confidence": "high"
+        },
+        {
+          "name": "Steamed Mini Crepe",
+          "vietnamese_name": "Banh Beo Vi Da",
+          "description": "Rice flour crepe, ground shrimp, scallion oil. Served with fish sauce.",
+          "price": 8,
+          "confidence": "medium"
+        },
+        {
+          "name": "Tapioca Dumpling",
+          "vietnamese_name": "Banh Bot Loc",
+          "description": "Shrimp and scallion oil, served with fish sauce.",
+          "price": 8,
+          "confidence": "medium"
+        },
+        {
+          "name": "Shrimp Tempura",
+          "vietnamese_name": "Tom Chien Gion",
+          "description": "Shrimp served with Vietnamese sweet and sour dipping sauce.",
+          "serving": "4 pieces",
+          "price": 8,
+          "confidence": "medium"
+        },
+        {
+          "name": "Grilled Beef Wrapped Shrimp",
+          "serving": "4 pieces",
+          "price": 9,
+          "confidence": "medium"
+        },
+        {
+          "name": "Shrimp Paste on Sugarcane",
+          "vietnamese_name": "Chao Tom",
+          "serving": "3 pieces",
+          "price": 10,
+          "confidence": "high"
+        },
+        {
+          "name": "Calamari",
+          "vietnamese_name": "Muc Chien Gion",
+          "description": "Served with Vietnamese sweet and sour dipping sauce.",
+          "price": 13,
+          "confidence": "high"
+        },
+        {
+          "name": "Chicken Wings",
+          "vietnamese_name": "Canh Ga",
+          "description": "Lime, honey, fish sauce. Chicken wings, batter, sauce.",
+          "price": 13,
+          "confidence": "medium"
+        },
+        {
+          "name": "Vietnamese Half-Moon Crepe",
+          "vietnamese_name": "Banh Xeo",
+          "description": "Rice flour, bean sprouts, onion, side vegetables. Choice of shrimp, shrimp and pork, or vegetarian.",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Grilled Beef Short Ribs",
+          "vietnamese_name": "Suon Bo Nuong",
+          "description": "Served with fish sauce, sesame and honey.",
+          "price": 17,
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "Self Wrapped",
+      "menu_heading": "SELF WRAPPED",
+      "category_description": "Served with rice paper, side vegetables and choice of dipping sauce: soy bean or anchovy sauce.",
+      "items": [
+        {
+          "name": "Hawaiian Leaf Sausage",
+          "vietnamese_name": "Bo La Lot",
+          "serving": "9 pieces",
+          "price": 21,
+          "confidence": "medium"
+        },
+        {
+          "name": "Chargrilled Pork Sausage Skewer",
+          "vietnamese_name": "Nem Nuong Ninh Hoa",
+          "price": 20,
+          "confidence": "medium"
+        },
+        {
+          "name": "Special Jicama",
+          "price": 20,
+          "confidence": "low"
+        },
+        {
+          "name": "Sesame Lemongrass Beef or Pork",
+          "price": 15,
+          "confidence": "medium"
+        },
+        {
+          "name": "Shrimp Paste on Sugarcane",
+          "vietnamese_name": "Chao Tom",
+          "serving": "8 pieces",
+          "price": 17,
+          "confidence": "medium"
+        }
+      ],
+      "modifiers": [
+        {
+          "name": "Add square rice vermicelli",
+          "vietnamese_name": "Banh Hoi",
+          "price": 3,
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Shrimp and Pork Noodle Soup",
+      "menu_heading": "SHRIMP AND PORK NOODLE SOUP",
+      "items": [
+        {
+          "name": "Spicy Lemongrass Beef Noodle Soup",
+          "vietnamese_name": "Bun Bo Hue",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Crab Paste Noodle Soup",
+          "vietnamese_name": "Bun Rieu",
+          "description": "Add snail: +2. Crab meat: +4.",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Special Noodle Soup",
+          "vietnamese_name": "Hu Tieu Mi My Tho",
+          "description": "Clear rice noodle or egg noodle.",
+          "price": 15,
+          "confidence": "medium"
+        },
+        {
+          "name": "Vietnamese Dry Noodle",
+          "vietnamese_name": "Hu Tieu Kho / Mi Kho",
+          "description": "Pork broth served with combination of pork and seafood. Choice of clear, soft or egg noodle.",
+          "price": 15,
+          "confidence": "medium"
+        },
+        {
+          "name": "Vietnamese Ham Hock Udon",
+          "vietnamese_name": "Banh Canh Gio Heo",
+          "price": 14,
+          "confidence": "medium"
+        },
+        {
+          "name": "Vietnamese Shrimp and Crab Meat Udon",
+          "vietnamese_name": "Banh Canh Tom Cua",
+          "price": 15,
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Stir Fried Noodle",
+      "menu_heading": "STIR FRIED NOODLE",
+      "items": [
+        {
+          "name": "Pad Thai",
+          "description": "Choice of chicken, beef or shrimp.",
+          "price": 13,
+          "confidence": "high"
+        },
+        {
+          "name": "Seafood and Meat Noodle",
+          "vietnamese_name": "Hu Tieu / Mi Xao",
+          "description": "Beef, chicken, shrimp, squid. Choice of egg noodle or clear rice noodle.",
+          "price": 17,
+          "confidence": "medium"
+        },
+        {
+          "name": "Seafood Noodle",
+          "vietnamese_name": "Hu Tieu / Mi Xao Do Bien",
+          "description": "Shrimp, squid, scallop. Choice of rice or egg noodle.",
+          "price": 17,
+          "confidence": "medium"
+        },
+        {
+          "name": "Crab Meat Clear Vermicelli",
+          "vietnamese_name": "Mien Xao Cua",
+          "price": 19,
+          "confidence": "high"
+        }
+      ],
+      "modifiers": [
+        {
+          "name": "Add chicken or beef",
+          "price": 2,
+          "confidence": "medium"
+        },
+        {
+          "name": "Add shrimp",
+          "price": 2,
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Soups",
+      "menu_heading": "SOUPS - CANH",
+      "price_columns": [
+        "small",
+        "large"
+      ],
+      "items": [
+        {
+          "name": "Hot Sour Soup",
+          "vietnamese_name": "Canh Mang Chua",
+          "description": "Shrimp, bamboo shoot, tofu.",
+          "prices": {
+            "small": 5,
+            "large": 10
+          },
+          "confidence": "medium"
+        },
+        {
+          "name": "Asparagus Soup",
+          "vietnamese_name": "Sup Mang Cua",
+          "description": "Served with crab meat.",
+          "prices": {
+            "small": 7,
+            "large": 16
+          },
+          "confidence": "medium"
+        },
+        {
+          "name": "Shrimp Tamarind Soup",
+          "vietnamese_name": "Canh Chua Tom",
+          "description": "Okra, tomatoes, pineapple, giant elephant ear and herb.",
+          "prices": {
+            "small": 8,
+            "large": 17
+          },
+          "confidence": "medium"
+        },
+        {
+          "name": "Fish Tamarind Soup",
+          "vietnamese_name": "Canh Chua Ca",
+          "description": "Choice of catfish or salmon.",
+          "prices": {
+            "small": null,
+            "large": 17
+          },
+          "confidence": "medium"
+        },
+        {
+          "name": "Tom Yum",
+          "vietnamese_name": "Canh Chua Thai",
+          "description": "Shrimp, tomato, mushroom.",
+          "prices": {
+            "small": 7,
+            "large": 16
+          },
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "name": "Rice Plates",
+      "menu_heading": "RICE PLATES - COM DIA",
+      "category_description": "Served with lettuce, cucumber, tomato and fish sauce.",
+      "items": [
+        {
+          "name": "Fried Rice",
+          "vietnamese_name": "Com Chien",
+          "description": "Choice of shrimp and pork, chicken, beef, shrimp only. Salted fish available.",
+          "price": 11,
+          "confidence": "medium"
+        },
+        {
+          "name": "Steam Chicken with Bone",
+          "vietnamese_name": "Com Ga Hai Nam",
+          "description": "Garlic rice, ginger sauce.",
+          "price": 15,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Chicken",
+          "vietnamese_name": "Com Ga Nuong",
+          "price": 14,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Pork Chops",
+          "vietnamese_name": "Com Suon",
+          "price": 15,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Pork Chop, Shredded Pork Skin and Pork-Egg Meatloaf",
+          "vietnamese_name": "Com Suon Bi Cha",
+          "price": 16,
+          "confidence": "high"
+        },
+        {
+          "name": "Grilled Pork Chop and Shrimp Paste on Sugarcane",
+          "vietnamese_name": "Com Suon Chao Tom",
+          "price": 16,
+          "confidence": "high"
+        },
+        {
+          "name": "Caramelized Shrimp and Pork",
+          "vietnamese_name": "Com Tom Thit Ram Man",
+          "price": 16,
+          "confidence": "medium"
+        },
+        {
+          "name": "Grilled Beef Short Ribs",
+          "vietnamese_name": "Com Bo Nuong",
+          "price": 17,
+          "confidence": "high"
+        }
+      ],
+      "modifiers": [
+        {
+          "name": "Add salted fish",
+          "price": 3,
+          "confidence": "medium"
+        }
+      ]
+    }
+  ],
+  "restaurant_notes": [
+    "Please inform us of any allergies as not all ingredients are listed.",
+    "Consuming raw or undercooked meats, poultry, seafood, shellfish or eggs may increase your risk of foodborne illness, especially if you have certain medical conditions."
+  ]
+}
