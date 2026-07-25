@@ -96,10 +96,11 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
     ]
   });
 
-  assert.match(agent.describeSkills(), /3 skills/);
+  assert.match(agent.describeSkills(), /4 skills/);
   assert.match(agent.describeSkills(), /check_menu_item/);
   assert.match(agent.describeSkills(), /list_food/);
   assert.match(agent.describeSkills(), /list_category_items/);
+  assert.match(agent.describeSkills(), /get_item_details/);
 
   const discovered: string[] = [];
   const reply = await agent.chat("Do you have beef pho?", (name) => {
@@ -300,6 +301,132 @@ test("rejects malformed list_category_items arguments", async () => {
   await assert.rejects(
     () => agent.chat("What is in that category?"),
     /list_category_items requires a non-empty string category/
+  );
+});
+
+test("executes get_item_details for an exact item name", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("get_item_details", { item: "Egg Rolls" }),
+      textResponse("Egg rolls are 3 pieces for $8.")
+    ]
+  });
+
+  const discovered: string[] = [];
+  const reply = await agent.chat("How much are egg rolls and what is in them?", (name) => {
+    discovered.push(name);
+  });
+
+  assert.deepEqual(discovered, ["get_item_details"]);
+  assert.equal(reply, "Egg rolls are 3 pieces for $8.");
+
+  assert.deepEqual(lastFunctionResponse(requestBodies).response, {
+    found: true,
+    ambiguous: false,
+    item: {
+      id: "appetizers-egg-rolls",
+      name: "Egg Rolls",
+      category: "Appetizers",
+      vietnamese_name: "Cha Gio",
+      description: "Shrimp, pork, taro, wood ear mushroom, cellophane noodles.",
+      price: 8,
+      serving: "3 pieces"
+    }
+  });
+});
+
+test("executes get_item_details with a stable item id and category modifiers", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("get_item_details", { item: "beef-noodle-soup-chicken-pho" }),
+      textResponse("Chicken pho is $13.")
+    ]
+  });
+
+  await agent.chat("What are the details for beef-noodle-soup-chicken-pho?");
+
+  const item = lastFunctionResponse(requestBodies).response.item as Record<string, unknown>;
+  assert.equal(item.id, "beef-noodle-soup-chicken-pho");
+  assert.equal(item.name, "Chicken Pho");
+  assert.equal(item.price, 13);
+  assert.deepEqual(item.availableModifiers, [
+    {
+      name: "Add noodle, meatball, tendon or tripe",
+      price: 1.5
+    },
+    {
+      name: "Add eye-round steak",
+      price: 2
+    }
+  ]);
+});
+
+test("executes get_item_details with a Vietnamese alias", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("get_item_details", { item: "Cha Gio" }),
+      textResponse("Cha Gio is egg rolls.")
+    ]
+  });
+
+  await agent.chat("What is Cha Gio?");
+
+  const item = lastFunctionResponse(requestBodies).response.item as Record<string, unknown>;
+  assert.equal(item.id, "appetizers-egg-rolls");
+  assert.equal(item.name, "Egg Rolls");
+  assert.equal(item.vietnamese_name, "Cha Gio");
+});
+
+test("returns ambiguity from get_item_details for duplicate item names", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("get_item_details", { item: "Shrimp Paste on Sugarcane" }),
+      textResponse("There are multiple shrimp paste on sugarcane options.")
+    ]
+  });
+
+  await agent.chat("Tell me the price for Shrimp Paste on Sugarcane.");
+
+  const response = lastFunctionResponse(requestBodies).response;
+  assert.equal(response.found, false);
+  assert.equal(response.ambiguous, true);
+  assert.equal((response.matches as unknown[]).length, 2);
+});
+
+test("returns candidates from get_item_details when an item is missing", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("get_item_details", { item: "pork chop" }),
+      textResponse("I found a few pork chop options. Which one do you mean?")
+    ]
+  });
+
+  await agent.chat("How much is the pork chop?");
+
+  const response = lastFunctionResponse(requestBodies).response;
+  assert.equal(response.found, false);
+  assert.equal(response.ambiguous, true);
+  assert.equal((response.matches as unknown[]).length, 3);
+});
+
+test("rejects malformed get_item_details arguments", async () => {
+  const agent = await createAgent({
+    responses: [toolCallResponse("get_item_details", { item: "" })]
+  });
+
+  await assert.rejects(
+    () => agent.chat("How much is that?"),
+    /get_item_details requires a non-empty string item/
   );
 });
 

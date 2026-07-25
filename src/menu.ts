@@ -4,6 +4,7 @@ export type MenuItem = {
   id: string;
   name: string;
   aliases: string[];
+  categoryId?: string;
   category?: string;
   menuHeading?: string;
   categoryDescription?: string;
@@ -54,6 +55,7 @@ function toMenuItem(value: unknown, category?: MenuCategory): MenuItem | null {
       id: slugify([category?.id, name].filter(Boolean).join("-")),
       name,
       aliases: [name],
+      categoryId: category?.id,
       category: category?.name
     };
   }
@@ -72,6 +74,7 @@ function toMenuItem(value: unknown, category?: MenuCategory): MenuItem | null {
     id,
     name,
     aliases: aliasesFor(rawItem, name),
+    categoryId: category?.id,
     category: category?.name,
     menuHeading: category?.menuHeading,
     categoryDescription: category?.categoryDescription

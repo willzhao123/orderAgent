@@ -37,6 +37,18 @@ function summarizeItem(item: MenuItem): Record<string, unknown> {
   return summary;
 }
 
+function summarizeItemDetails(item: MenuItem, menu: Menu): Record<string, unknown> {
+  const summary = summarizeItem(item);
+  const category = menu.categories.find((candidate) => candidate.id === item.categoryId);
+
+  if (item.ingredients !== undefined) summary.ingredients = item.ingredients;
+  if (category?.modifiers) {
+    summary.availableModifiers = category.modifiers.map(summarizeModifier);
+  }
+
+  return summary;
+}
+
 function summarizeCategoryForVoice(category: MenuCategory): Record<string, unknown> {
   return {
     id: category.id,
@@ -63,6 +75,12 @@ function summarizeCategoryCandidate(category: MenuCategory): Record<string, unkn
   };
 }
 
+function summarizeModifier(modifier: unknown): unknown {
+  if (!modifier || typeof modifier !== "object") return modifier;
+  const { confidence: _confidence, ...customerFacingModifier } = modifier as Record<string, unknown>;
+  return customerFacingModifier;
+}
+
 function summarizeCategoryItems(category: MenuCategory): Record<string, unknown> {
   return {
     id: category.id,
@@ -71,13 +89,28 @@ function summarizeCategoryItems(category: MenuCategory): Record<string, unknown>
     ...(category.categoryDescription
       ? { description: category.categoryDescription }
       : {}),
-    ...(category.modifiers ? { modifiers: category.modifiers } : {}),
+    ...(category.modifiers ? { modifiers: category.modifiers.map(summarizeModifier) } : {}),
     items: category.items.map(summarizeItem)
   };
 }
 
 function topCandidates(items: MenuItem[], limit = 5): Record<string, unknown>[] {
   return items.slice(0, limit).map(summarizeItem);
+}
+
+function exactItemMatches(menuItems: MenuItem[], query: string): MenuItem[] {
+  const normalizedQuery = normalize(query);
+  return menuItems.filter((item) =>
+    item.id === normalizedQuery ||
+    item.aliases.some((alias) => normalize(alias) === normalizedQuery)
+  );
+}
+
+function containedItemMatches(menuItems: MenuItem[], query: string): MenuItem[] {
+  const normalizedQuery = normalize(query);
+  return menuItems.filter((item) =>
+    item.aliases.some((alias) => normalize(alias).includes(normalizedQuery))
+  );
 }
 
 function closeMatches(menuItems: MenuItem[], query: string): MenuItem[] {
@@ -105,11 +138,7 @@ function validateCheckMenuItemInput(input: Record<string, unknown>): string {
 
 function checkMenuItem(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const itemName = validateCheckMenuItemInput(input);
-  const normalizedItemName = normalize(itemName);
-  const exactMatches = context.menu.items.filter((item) =>
-    item.id === normalizedItemName ||
-    item.aliases.some((alias) => normalize(alias) === normalizedItemName)
-  );
+  const exactMatches = exactItemMatches(context.menu.items, itemName);
 
   if (exactMatches.length === 1) {
     return { found: true, ambiguous: false, item: summarizeItem(exactMatches[0]!) };
@@ -125,9 +154,7 @@ function checkMenuItem(context: SkillContext, input: Record<string, unknown>): R
     };
   }
 
-  const containedMatches = context.menu.items.filter((item) =>
-    item.aliases.some((alias) => normalize(alias).includes(normalizedItemName))
-  );
+  const containedMatches = containedItemMatches(context.menu.items, itemName);
   if (containedMatches.length === 1) {
     return { found: true, ambiguous: false, item: summarizeItem(containedMatches[0]!) };
   }
@@ -234,6 +261,58 @@ function listCategoryItems(context: SkillContext, input: Record<string, unknown>
   };
 }
 
+function validateGetItemDetailsInput(input: Record<string, unknown>): string {
+  if (typeof input.item !== "string" || !input.item.trim()) {
+    throw new Error("get_item_details requires a non-empty string item.");
+  }
+
+  return input.item.trim();
+}
+
+function getItemDetails(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+  const itemQuery = validateGetItemDetailsInput(input);
+  const exactMatches = exactItemMatches(context.menu.items, itemQuery);
+
+  if (exactMatches.length === 1) {
+    return {
+      found: true,
+      ambiguous: false,
+      item: summarizeItemDetails(exactMatches[0]!, context.menu)
+    };
+  }
+
+  if (exactMatches.length > 1) {
+    return {
+      found: false,
+      ambiguous: true,
+      query: itemQuery,
+      matches: topCandidates(exactMatches),
+      message: "Multiple menu items match that name. Ask the customer which one they mean."
+    };
+  }
+
+  const containedMatches = containedItemMatches(context.menu.items, itemQuery);
+  if (containedMatches.length === 1) {
+    return {
+      found: true,
+      ambiguous: false,
+      item: summarizeItemDetails(containedMatches[0]!, context.menu)
+    };
+  }
+
+  return {
+    found: false,
+    ambiguous: containedMatches.length > 1,
+    query: itemQuery,
+    matches: topCandidates(containedMatches.length > 0
+      ? containedMatches
+      : closeMatches(context.menu.items, itemQuery)),
+    message: containedMatches.length > 1
+      ? "Several items match that request. Ask which one they mean."
+      : "No matching item was found. Offer close matches if present."
+  };
+}
+
 function menuIntent(message: string): boolean {
   return /\b(menu|food|dish|dishes|item|items|serve|serves|have|available|order|pho|salad|rice|noodle|soup|rolls?)\b/i
     .test(message);
@@ -292,6 +371,25 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       .test(message) && /\b(what|which|list|items?|options|in|under|show|tell me)\b/i
       .test(message),
     execute: listCategoryItems
+  },
+  get_item_details: {
+    name: "get_item_details",
+    codexName: "get-item-details",
+    parameters: {
+      type: "object",
+      properties: {
+        item: {
+          type: "string",
+          description: "The non-empty menu item id, English name, Vietnamese name, or alias."
+        }
+      },
+      required: ["item"],
+      additionalProperties: false
+    },
+    usageInstruction: "Use get_item_details when the user asks for an item's price, description, serving size, ingredients, Vietnamese name, category, or modifiers.",
+    shouldUse: (message) => /\b(price|cost|how much|description|describe|ingredients?|what is in|serving|pieces|vietnamese|modifiers?|comes with|details?)\b/i
+      .test(message) && menuIntent(message),
+    execute: getItemDetails
   }
 };
 
