@@ -96,9 +96,10 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
     ]
   });
 
-  assert.match(agent.describeSkills(), /2 skills/);
+  assert.match(agent.describeSkills(), /3 skills/);
   assert.match(agent.describeSkills(), /check_menu_item/);
   assert.match(agent.describeSkills(), /list_food/);
+  assert.match(agent.describeSkills(), /list_category_items/);
 
   const discovered: string[] = [];
   const reply = await agent.chat("Do you have beef pho?", (name) => {
@@ -204,6 +205,102 @@ test("loads menu items from the configured JSON file", async () => {
     ],
     message: "Return these category summaries first. Ask which category the customer wants before listing every item."
   });
+});
+
+test("executes list_category_items for a selected category", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("list_category_items", { category: "Salads" }),
+      textResponse("The salad options include chicken salad, banana blossom salad, and beef salad.")
+    ]
+  });
+
+  const discovered: string[] = [];
+  const reply = await agent.chat("What items are in salads?", (name) => {
+    discovered.push(name);
+  });
+
+  assert.deepEqual(discovered, ["list_category_items"]);
+  assert.equal(reply, "The salad options include chicken salad, banana blossom salad, and beef salad.");
+
+  const response = lastFunctionResponse(requestBodies).response;
+  assert.equal(response.found, true);
+  assert.equal(response.ambiguous, false);
+
+  const category = response.category as {
+    id: string;
+    name: string;
+    items: Array<Record<string, unknown>>;
+  };
+  assert.equal(category.id, "salads");
+  assert.equal(category.name, "Salads");
+  assert.equal(category.items.length, 5);
+  assert.deepEqual(category.items[0], {
+    id: "salads-chicken-salad",
+    name: "Chicken Salad",
+    category: "Salads",
+    vietnamese_name: "Goi Ga",
+    description: "Cabbage, mint, dried onion, peanut.",
+    price: 14
+  });
+});
+
+test("executes list_category_items with a stable category id", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("list_category_items", { category: "rice-plates" }),
+      textResponse("Rice plates include fried rice, grilled chicken, and grilled pork chops.")
+    ]
+  });
+
+  await agent.chat("Show me rice plates.");
+
+  const category = lastFunctionResponse(requestBodies).response.category as {
+    id: string;
+    name: string;
+  };
+  assert.equal(category.id, "rice-plates");
+  assert.equal(category.name, "Rice Plates");
+});
+
+test("returns category candidates when list_category_items cannot find a category", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("list_category_items", { category: "dessert" }),
+      textResponse("I do not see desserts. Available categories include salads, pho, and appetizers.")
+    ]
+  });
+
+  await agent.chat("What desserts do you have?");
+
+  const response = lastFunctionResponse(requestBodies).response;
+  assert.equal(response.found, false);
+  assert.equal(response.ambiguous, false);
+  assert.deepEqual(response.categories, [
+    { id: "salads", name: "Salads", itemCount: 5 },
+    { id: "beef-noodle-soup", name: "Beef Noodle Soup", itemCount: 8 },
+    { id: "vermicelli", name: "Vermicelli", itemCount: 5 },
+    { id: "appetizers", name: "Appetizers", itemCount: 13 },
+    { id: "self-wrapped", name: "Self Wrapped", itemCount: 5 },
+    { id: "shrimp-and-pork-noodle-soup", name: "Shrimp and Pork Noodle Soup", itemCount: 6 }
+  ]);
+});
+
+test("rejects malformed list_category_items arguments", async () => {
+  const agent = await createAgent({
+    responses: [toolCallResponse("list_category_items", { category: "" })]
+  });
+
+  await assert.rejects(
+    () => agent.chat("What is in that category?"),
+    /list_category_items requires a non-empty string category/
+  );
 });
 
 test("rejects malformed check_menu_item arguments before execution", async () => {

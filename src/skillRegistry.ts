@@ -55,6 +55,27 @@ function summarizeCategoryForVoice(category: MenuCategory): Record<string, unkno
   };
 }
 
+function summarizeCategoryCandidate(category: MenuCategory): Record<string, unknown> {
+  return {
+    id: category.id,
+    name: category.name,
+    itemCount: category.items.length
+  };
+}
+
+function summarizeCategoryItems(category: MenuCategory): Record<string, unknown> {
+  return {
+    id: category.id,
+    name: category.name,
+    ...(category.menuHeading ? { menuHeading: category.menuHeading } : {}),
+    ...(category.categoryDescription
+      ? { description: category.categoryDescription }
+      : {}),
+    ...(category.modifiers ? { modifiers: category.modifiers } : {}),
+    items: category.items.map(summarizeItem)
+  };
+}
+
 function topCandidates(items: MenuItem[], limit = 5): Record<string, unknown>[] {
   return items.slice(0, limit).map(summarizeItem);
 }
@@ -142,6 +163,77 @@ function listFood(context: SkillContext, input: Record<string, unknown>): Record
   };
 }
 
+function validateListCategoryItemsInput(input: Record<string, unknown>): string {
+  if (typeof input.category !== "string" || !input.category.trim()) {
+    throw new Error("list_category_items requires a non-empty string category.");
+  }
+
+  return input.category.trim();
+}
+
+function categoryMatches(category: MenuCategory, query: string): boolean {
+  const normalizedQuery = normalize(query);
+  return category.id === normalizedQuery ||
+    normalize(category.name) === normalizedQuery ||
+    Boolean(category.menuHeading && normalize(category.menuHeading) === normalizedQuery);
+}
+
+function categoryContains(category: MenuCategory, query: string): boolean {
+  const normalizedQuery = normalize(query);
+  return category.id.includes(normalizedQuery) ||
+    normalize(category.name).includes(normalizedQuery) ||
+    Boolean(category.menuHeading && normalize(category.menuHeading).includes(normalizedQuery));
+}
+
+function listCategoryItems(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+  const categoryQuery = validateListCategoryItemsInput(input);
+  const exactMatches = context.menu.categories.filter((category) =>
+    categoryMatches(category, categoryQuery)
+  );
+
+  if (exactMatches.length === 1) {
+    return {
+      found: true,
+      ambiguous: false,
+      category: summarizeCategoryItems(exactMatches[0]!)
+    };
+  }
+
+  if (exactMatches.length > 1) {
+    return {
+      found: false,
+      ambiguous: true,
+      query: categoryQuery,
+      categories: exactMatches.map(summarizeCategoryCandidate),
+      message: "Multiple categories match that request. Ask which category they mean."
+    };
+  }
+
+  const containedMatches = context.menu.categories.filter((category) =>
+    categoryContains(category, categoryQuery)
+  );
+  if (containedMatches.length === 1) {
+    return {
+      found: true,
+      ambiguous: false,
+      category: summarizeCategoryItems(containedMatches[0]!)
+    };
+  }
+
+  return {
+    found: false,
+    ambiguous: containedMatches.length > 1,
+    query: categoryQuery,
+    categories: (containedMatches.length > 0
+      ? containedMatches
+      : context.menu.categories.slice(0, 6)
+    ).map(summarizeCategoryCandidate),
+    message: containedMatches.length > 1
+      ? "Several categories match that request. Ask which one they want."
+      : "No matching category was found. Offer the available category options."
+  };
+}
+
 function menuIntent(message: string): boolean {
   return /\b(menu|food|dish|dishes|item|items|serve|serves|have|available|order|pho|salad|rice|noodle|soup|rolls?)\b/i
     .test(message);
@@ -180,6 +272,26 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
     shouldUse: (message) => /\b(menu|what food|what dishes|what items|available|options)\b/i
       .test(message),
     execute: listFood
+  },
+  list_category_items: {
+    name: "list_category_items",
+    codexName: "list-category-items",
+    parameters: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description: "The non-empty menu category id or category name the customer selected."
+        }
+      },
+      required: ["category"],
+      additionalProperties: false
+    },
+    usageInstruction: "Use list_category_items after the customer chooses a category, or when they ask what items are in a specific category.",
+    shouldUse: (message) => /\b(category|categories|salads?|pho|appetizers?|soups?|rice plates?|vermicelli|self wrapped|noodle)\b/i
+      .test(message) && /\b(what|which|list|items?|options|in|under|show|tell me)\b/i
+      .test(message),
+    execute: listCategoryItems
   }
 };
 
