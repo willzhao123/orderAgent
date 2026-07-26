@@ -1,5 +1,3 @@
-import type { OrderLine } from "./orders.ts";
-
 export type ISODateTime = string;
 
 export type FulfillmentType = "pickup" | "delivery" | "dine_in";
@@ -236,6 +234,16 @@ export type OrderStatus =
   | "failed_submission"
   | "cancelled";
 
+export type OrderLine = {
+  menuItemId: string;
+  name: string;
+  quantity: number;
+  category?: string;
+  unitPrice?: number;
+  lineTotal?: number;
+  notes?: string;
+};
+
 export type OrderItemModifier = {
   id: string;
   modifierGroupId?: string;
@@ -261,6 +269,28 @@ export type OrderQuote = {
   currency: "USD";
   missingInformation: string[];
   createdAt: ISODateTime;
+};
+
+export type Order = {
+  id: string;
+  businessId: string;
+  locationId?: string;
+  conversationSessionId?: string;
+  customerId?: string;
+  status: OrderStatus;
+  fulfillmentType?: FulfillmentType;
+  items: OrderItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency: "USD";
+  customerName?: string;
+  customerPhone?: string;
+  specialInstructions?: string;
+  confirmedAt?: ISODateTime;
+  posSubmissionId?: string;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
 };
 
 export type OrderPayment = {

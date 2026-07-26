@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { BackendAgent } from "../src/backendAgent.ts";
+import { BackendDataStore } from "../src/backendDataStore.ts";
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const defaultMenuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
@@ -30,14 +31,15 @@ async function createAgent(options: {
   responses: unknown[];
   requestBodies?: unknown[];
   menuPath?: string;
-  ordersPath?: string;
+  backendStatePath?: string;
 }): Promise<BackendAgent> {
+  const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-state-"));
   return BackendAgent.create({
     apiKey: "test-key",
     model: "test-model",
     skillsPath,
     menuPath: options.menuPath ?? defaultMenuPath,
-    ordersPath: options.ordersPath,
+    backendStatePath: options.backendStatePath ?? join(tempDir, "backend-state.json"),
     fetcher: fakeFetchWith(options.responses, options.requestBodies)
   });
 }
@@ -68,35 +70,40 @@ function textResponse(text: string): unknown {
   };
 }
 
-async function seedOrderFile(ordersPath: string): Promise<void> {
-  await writeFile(ordersPath, JSON.stringify([
-    {
-      id: "order_0001",
-      status: "created",
-      items: [
-        {
-          menuItemId: "appetizers-egg-rolls",
-          name: "Egg Rolls",
-          quantity: 2,
-          category: "Appetizers",
-          unitPrice: 8,
-          lineTotal: 16
-        },
-        {
-          menuItemId: "beef-noodle-soup-chicken-pho",
-          name: "Chicken Pho",
-          quantity: 1,
-          category: "Beef Noodle Soup",
-          unitPrice: 13,
-          lineTotal: 13,
-          notes: "no cilantro"
-        }
-      ],
-      subtotal: 29,
-      currency: "USD",
-      createdAt: "2026-07-24T12:00:00.000Z"
-    }
-  ], null, 2));
+function seedBackendOrder(statePath: string): void {
+  const store = new BackendDataStore(statePath);
+  store.createDraftOrder({
+    businessId: "business_0001",
+    customerPhone: "+13125550100",
+    items: [
+      {
+        id: "line_0001",
+        menuItemId: "appetizers-egg-rolls",
+        name: "Egg Rolls",
+        quantity: 2,
+        category: "Appetizers",
+        unitPrice: 8,
+        lineTotal: 16,
+        modifiers: []
+      },
+      {
+        id: "line_0002",
+        menuItemId: "beef-noodle-soup-chicken-pho",
+        name: "Chicken Pho",
+        quantity: 1,
+        category: "Beef Noodle Soup",
+        unitPrice: 13,
+        lineTotal: 13,
+        notes: "no cilantro",
+        specialInstructions: "no cilantro",
+        modifiers: []
+      }
+    ]
+  });
+}
+
+function readBackendState(statePath: string): ReturnType<BackendDataStore["read"]> {
+  return new BackendDataStore(statePath).read();
 }
 
 function lastFunctionResponse(requestBodies: unknown[]): {
@@ -177,10 +184,10 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
 
 test("executes create_order and persists approved menu items", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
+  const backendStatePath = join(tempDir, "backend-state.json");
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("create_order", {
@@ -203,45 +210,57 @@ test("executes create_order and persists approved menu items", async () => {
 
   const response = lastFunctionResponse(requestBodies).response;
   assert.equal(response.created, true);
-  assert.equal(response.message, "Order created and stored.");
+  assert.equal(response.message, "Draft order created and stored.");
 
   const order = response.order as Record<string, unknown>;
   assert.equal(order.id, "order_0001");
-  assert.equal(order.status, "created");
+  assert.equal(order.status, "draft");
+  assert.equal(order.businessId, "business_0001");
   assert.equal(order.subtotal, 29);
+  assert.equal(order.tax, 0);
+  assert.equal(order.total, 29);
   assert.equal(order.currency, "USD");
   assert.match(String(order.createdAt), /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(String(order.updatedAt), /^\d{4}-\d{2}-\d{2}T/);
+  assert.deepEqual(response.missingInformation, ["fulfillment_type", "customer_phone"]);
+  assert.equal(response.readyForConfirmation, false);
   assert.deepEqual(order.items, [
     {
+      id: "line_0001",
       menuItemId: "appetizers-egg-rolls",
       name: "Egg Rolls",
       quantity: 2,
       category: "Appetizers",
       unitPrice: 8,
-      lineTotal: 16
+      lineTotal: 16,
+      modifiers: []
     },
     {
+      id: "line_0002",
       menuItemId: "beef-noodle-soup-chicken-pho",
       name: "Chicken Pho",
       quantity: 1,
       category: "Beef Noodle Soup",
       unitPrice: 13,
       lineTotal: 13,
-      notes: "no cilantro"
+      modifiers: [],
+      notes: "no cilantro",
+      specialInstructions: "no cilantro"
     }
   ]);
 
-  const storedOrders = JSON.parse(await readFile(ordersPath, "utf8")) as unknown[];
-  assert.equal(storedOrders.length, 1);
-  assert.deepEqual(storedOrders[0], order);
+  const state = readBackendState(backendStatePath);
+  assert.equal(state.orders.length, 1);
+  assert.deepEqual(state.orders[0], order);
+  assert.equal(state.orderQuotes[0]!.total, 29);
 });
 
 test("create_order does not persist unavailable or ambiguous items", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
+  const backendStatePath = join(tempDir, "backend-state.json");
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("create_order", {
@@ -266,10 +285,7 @@ test("create_order does not persist unavailable or ambiguous items", async () =>
   assert.equal(issues[0]!.item, "pizza");
   assert.equal(issues[1]!.item, "Hawaiian Leaf Sausage");
 
-  await assert.rejects(
-    () => readFile(ordersPath, "utf8"),
-    /ENOENT/
-  );
+  assert.equal(readBackendState(backendStatePath).orders.length, 0);
 });
 
 test("rejects malformed create_order arguments", async () => {
@@ -285,12 +301,12 @@ test("rejects malformed create_order arguments", async () => {
 
 test("executes add_item_to_order and persists the updated order", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
-  await seedOrderFile(ordersPath);
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
 
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("add_item_to_order", {
@@ -314,26 +330,28 @@ test("executes add_item_to_order and persists the updated order", async () => {
   const order = response.order as Record<string, unknown>;
   assert.equal(order.subtotal, 45);
   assert.deepEqual((order.items as unknown[]).at(-1), {
+    id: "line_0003",
     menuItemId: "appetizers-spring-rolls",
     name: "Spring Rolls",
     quantity: 2,
     category: "Appetizers",
     unitPrice: 8,
-    lineTotal: 16
+    lineTotal: 16,
+    modifiers: []
   });
 
-  const storedOrders = JSON.parse(await readFile(ordersPath, "utf8")) as Array<Record<string, unknown>>;
-  assert.deepEqual(storedOrders[0]!.items, order.items);
+  const state = readBackendState(backendStatePath);
+  assert.deepEqual(state.orders[0]!.items, order.items);
 });
 
 test("executes update_order_item and recalculates totals", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
-  await seedOrderFile(ordersPath);
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
 
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("update_order_item", {
@@ -354,24 +372,27 @@ test("executes update_order_item and recalculates totals", async () => {
   const order = response.order as Record<string, unknown>;
   assert.equal(order.subtotal, 37);
   assert.deepEqual((order.items as Array<Record<string, unknown>>)[0], {
+    id: "line_0001",
     menuItemId: "appetizers-egg-rolls",
     name: "Egg Rolls",
     quantity: 3,
     category: "Appetizers",
     unitPrice: 8,
     lineTotal: 24,
-    notes: "extra sauce"
+    modifiers: [],
+    notes: "extra sauce",
+    specialInstructions: "extra sauce"
   });
 });
 
 test("executes remove_order_item and persists the remaining order", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
-  await seedOrderFile(ordersPath);
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
 
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("remove_order_item", {
@@ -390,24 +411,26 @@ test("executes remove_order_item and persists the remaining order", async () => 
   assert.equal(order.subtotal, 16);
   assert.deepEqual(order.items, [
     {
+      id: "line_0001",
       menuItemId: "appetizers-egg-rolls",
       name: "Egg Rolls",
       quantity: 2,
       category: "Appetizers",
       unitPrice: 8,
-      lineTotal: 16
+      lineTotal: 16,
+      modifiers: []
     }
   ]);
 });
 
 test("executes clear_order and leaves an empty stored order", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
-  await seedOrderFile(ordersPath);
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
 
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("clear_order", { order_id: "order_0001" }),
@@ -422,16 +445,17 @@ test("executes clear_order and leaves an empty stored order", async () => {
   const order = response.order as Record<string, unknown>;
   assert.deepEqual(order.items, []);
   assert.equal(order.subtotal, 0);
+  assert.deepEqual(response.missingInformation, ["items", "fulfillment_type"]);
 });
 
 test("executes summarize_order for stored order contents", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
-  await seedOrderFile(ordersPath);
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
 
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("summarize_order", { order_id: "order_0001" }),
@@ -451,12 +475,12 @@ test("executes summarize_order for stored order contents", async () => {
 
 test("executes quote_order_total for the stored subtotal", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
-  const ordersPath = join(tempDir, "orders.json");
-  await seedOrderFile(ordersPath);
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
 
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
-    ordersPath,
+    backendStatePath,
     requestBodies,
     responses: [
       toolCallResponse("quote_order_total", { order_id: "order_0001" }),
@@ -470,10 +494,13 @@ test("executes quote_order_total for the stored subtotal", async () => {
     found: true,
     order_id: "order_0001",
     subtotal: 29,
+    tax: 0,
+    total: 29,
     currency: "USD",
+    missingInformation: ["fulfillment_type"],
     itemCount: 3,
     unpricedItems: [],
-    message: "Return this stored order subtotal to the customer."
+    message: "Return this stored order total to the customer."
   });
 });
 

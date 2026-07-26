@@ -1,9 +1,10 @@
 import type { Menu, MenuCategory, MenuItem } from "./menu.ts";
-import type { Order, OrderLine, OrderStore } from "./orders.ts";
+import type { OrderService, OrderServiceContext, RequestedOrderItem } from "./orderService.ts";
 
 type SkillContext = {
   menu: Menu;
-  orderStore: OrderStore;
+  orderService: OrderService;
+  orderContext: OrderServiceContext;
 };
 
 export type SkillRegistryEntry = {
@@ -271,12 +272,6 @@ function validateGetItemDetailsInput(input: Record<string, unknown>): string {
   return input.item.trim();
 }
 
-type RequestedOrderItem = {
-  item: string;
-  quantity: number;
-  notes?: string;
-};
-
 function validateCreateOrderInput(input: Record<string, unknown>): RequestedOrderItem[] {
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new Error("create_order requires a non-empty items array.");
@@ -314,143 +309,12 @@ function validateCreateOrderInput(input: Record<string, unknown>): RequestedOrde
   });
 }
 
-function resolveMenuItem(menuItems: MenuItem[], query: string): {
-  item?: MenuItem;
-  issue?: Record<string, unknown>;
-} {
-  const exactMatches = exactItemMatches(menuItems, query);
-  if (exactMatches.length === 1) return { item: exactMatches[0] };
-  if (exactMatches.length > 1) {
-    return {
-      issue: {
-        item: query,
-        reason: "ambiguous",
-        matches: topCandidates(exactMatches),
-        message: "Multiple menu items match that order item. Ask which one they mean."
-      }
-    };
-  }
-
-  const containedMatches = containedItemMatches(menuItems, query);
-  if (containedMatches.length === 1) return { item: containedMatches[0] };
-  if (containedMatches.length > 1) {
-    return {
-      issue: {
-        item: query,
-        reason: "ambiguous",
-        matches: topCandidates(containedMatches),
-        message: "Several menu items match that order item. Ask which one they mean."
-      }
-    };
-  }
-
-  return {
-    issue: {
-      item: query,
-      reason: "not_found",
-      matches: topCandidates(closeMatches(menuItems, query)),
-      message: "That order item is not on the approved menu. Offer close matches if present."
-    }
-  };
-}
-
-function toOrderLine(item: MenuItem, requestedItem: RequestedOrderItem): OrderLine {
-  const unitPrice = typeof item.price === "number" ? item.price : undefined;
-
-  return {
-    menuItemId: item.id,
-    name: item.name,
-    quantity: requestedItem.quantity,
-    ...(item.category ? { category: item.category } : {}),
-    ...(unitPrice !== undefined
-      ? {
-          unitPrice,
-          lineTotal: unitPrice * requestedItem.quantity
-        }
-      : {}),
-    ...(requestedItem.notes ? { notes: requestedItem.notes } : {})
-  };
-}
-
-function recalculateOrderLine(line: OrderLine): OrderLine {
-  return {
-    ...line,
-    ...(line.unitPrice !== undefined
-      ? { lineTotal: line.unitPrice * line.quantity }
-      : {})
-  };
-}
-
-function summarizeOrderForCustomer(order: Order): Record<string, unknown> {
-  return {
-    id: order.id,
-    status: order.status,
-    items: order.items,
-    subtotal: order.subtotal,
-    currency: order.currency,
-    createdAt: order.createdAt
-  };
-}
-
 function validateOrderId(input: Record<string, unknown>, skillName: string): string {
   if (typeof input.order_id !== "string" || !input.order_id.trim()) {
     throw new Error(`${skillName} requires a non-empty string order_id.`);
   }
 
   return input.order_id.trim();
-}
-
-function getOrderOrMissing(context: SkillContext, orderId: string): {
-  order?: Order;
-  response?: Record<string, unknown>;
-} {
-  const order = context.orderStore.get(orderId);
-  if (order) return { order };
-
-  return {
-    response: {
-      found: false,
-      order_id: orderId,
-      message: "No stored order matches that order id."
-    }
-  };
-}
-
-function findOrderLineIndex(order: Order, itemQuery: string): {
-  index?: number;
-  response?: Record<string, unknown>;
-} {
-  const normalizedQuery = normalize(itemQuery);
-  const matches = order.items
-    .map((item, index) => ({ item, index }))
-    .filter(({ item }) =>
-      item.menuItemId === normalizedQuery ||
-      normalize(item.name) === normalizedQuery
-    );
-
-  if (matches.length === 1) return { index: matches[0]!.index };
-
-  if (matches.length > 1) {
-    return {
-      response: {
-        updated: false,
-        ambiguous: true,
-        item: itemQuery,
-        matches: matches.map(({ item }) => item),
-        message: "Multiple order lines match that item. Ask which line the customer means."
-      }
-    };
-  }
-
-  return {
-    response: {
-      updated: false,
-      found: false,
-      item: itemQuery,
-      items: order.items,
-      message: "That item is not in the stored order."
-    }
-  };
 }
 
 function validateAddItemToOrderInput(input: Record<string, unknown>): {
@@ -469,39 +333,7 @@ function validateAddItemToOrderInput(input: Record<string, unknown>): {
 
 function addItemToOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const { orderId, requestedItem } = validateAddItemToOrderInput(input);
-  const { order, response } = getOrderOrMissing(context, orderId);
-  if (!order) return response!;
-
-  const resolved = resolveMenuItem(context.menu.items, requestedItem.item);
-  if (!resolved.item) {
-    return {
-      added: false,
-      issue: resolved.issue,
-      message: "No order changes were stored. Resolve unavailable or ambiguous items first."
-    };
-  }
-
-  const newLine = toOrderLine(resolved.item, requestedItem);
-  const existingIndex = order.items.findIndex((item) => item.menuItemId === newLine.menuItemId);
-  const items = [...order.items];
-
-  if (existingIndex === -1) {
-    items.push(newLine);
-  } else {
-    const existingLine = items[existingIndex]!;
-    items[existingIndex] = recalculateOrderLine({
-      ...existingLine,
-      quantity: existingLine.quantity + requestedItem.quantity,
-      ...(requestedItem.notes ? { notes: requestedItem.notes } : {})
-    });
-  }
-
-  const updatedOrder = context.orderStore.update(order.id, items)!;
-  return {
-    added: true,
-    order: summarizeOrderForCustomer(updatedOrder),
-    message: "Item added to the order."
-  };
+  return context.orderService.addItemToOrder(orderId, requestedItem);
 }
 
 function validateUpdateOrderItemInput(input: Record<string, unknown>): {
@@ -544,26 +376,7 @@ function validateUpdateOrderItemInput(input: Record<string, unknown>): {
 
 function updateOrderItem(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const update = validateUpdateOrderItemInput(input);
-  const { order, response } = getOrderOrMissing(context, update.orderId);
-  if (!order) return response!;
-
-  const lineMatch = findOrderLineIndex(order, update.item);
-  if (lineMatch.index === undefined) return lineMatch.response!;
-
-  const items = [...order.items];
-  const existingLine = items[lineMatch.index]!;
-  items[lineMatch.index] = recalculateOrderLine({
-    ...existingLine,
-    ...(update.quantity !== undefined ? { quantity: update.quantity } : {}),
-    ...(update.notes !== undefined ? { notes: update.notes } : {})
-  });
-
-  const updatedOrder = context.orderStore.update(order.id, items)!;
-  return {
-    updated: true,
-    order: summarizeOrderForCustomer(updatedOrder),
-    message: "Order item updated."
-  };
+  return context.orderService.updateOrderItem(update.orderId, update);
 }
 
 function validateOrderItemInput(input: Record<string, unknown>, skillName: string): {
@@ -580,98 +393,27 @@ function validateOrderItemInput(input: Record<string, unknown>, skillName: strin
 
 function removeOrderItem(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const { orderId, item } = validateOrderItemInput(input, "remove_order_item");
-  const { order, response } = getOrderOrMissing(context, orderId);
-  if (!order) return response!;
-
-  const lineMatch = findOrderLineIndex(order, item);
-  if (lineMatch.index === undefined) {
-    return {
-      ...lineMatch.response!,
-      removed: false
-    };
-  }
-
-  const items = order.items.filter((_line, index) => index !== lineMatch.index);
-  const updatedOrder = context.orderStore.update(order.id, items)!;
-  return {
-    removed: true,
-    order: summarizeOrderForCustomer(updatedOrder),
-    message: "Order item removed."
-  };
+  return context.orderService.removeOrderItem(orderId, item);
 }
 
 function clearOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const orderId = validateOrderId(input, "clear_order");
-  const { order, response } = getOrderOrMissing(context, orderId);
-  if (!order) return response!;
-
-  const updatedOrder = context.orderStore.update(order.id, [])!;
-  return {
-    cleared: true,
-    order: summarizeOrderForCustomer(updatedOrder),
-    message: "Order cleared."
-  };
+  return context.orderService.clearOrder(orderId);
 }
 
 function summarizeOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const orderId = validateOrderId(input, "summarize_order");
-  const { order, response } = getOrderOrMissing(context, orderId);
-  if (!order) return response!;
-
-  return {
-    found: true,
-    order: summarizeOrderForCustomer(order),
-    message: order.items.length > 0
-      ? "Return this stored order summary to the customer."
-      : "The stored order is empty."
-  };
+  return context.orderService.summarizeOrder(orderId);
 }
 
 function quoteOrderTotal(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const orderId = validateOrderId(input, "quote_order_total");
-  const { order, response } = getOrderOrMissing(context, orderId);
-  if (!order) return response!;
-
-  const unpricedItems = order.items.filter((item) => item.lineTotal === undefined);
-  return {
-    found: true,
-    order_id: order.id,
-    subtotal: order.subtotal,
-    currency: order.currency,
-    itemCount: order.items.reduce((total, item) => total + item.quantity, 0),
-    unpricedItems,
-    message: unpricedItems.length > 0
-      ? "Some items do not have a single stored price, so the quoted subtotal excludes those items."
-      : "Return this stored order subtotal to the customer."
-  };
+  return context.orderService.quoteOrderTotal(orderId);
 }
 
 function createOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
   const requestedItems = validateCreateOrderInput(input);
-  const resolved = requestedItems.map((requestedItem) => ({
-    requestedItem,
-    ...resolveMenuItem(context.menu.items, requestedItem.item)
-  }));
-  const issues = resolved.flatMap((result) => result.issue ? [result.issue] : []);
-
-  if (issues.length > 0) {
-    return {
-      created: false,
-      issues,
-      message: "No order was stored. Resolve unavailable or ambiguous items with the customer first."
-    };
-  }
-
-  const items = resolved.map((result) =>
-    toOrderLine(result.item!, result.requestedItem)
-  );
-  const order = context.orderStore.create(items);
-
-  return {
-    created: true,
-    order,
-    message: "Order created and stored."
-  };
+  return context.orderService.createOrder(requestedItems, context.orderContext);
 }
 
 function getItemDetails(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {

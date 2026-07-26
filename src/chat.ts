@@ -13,14 +13,12 @@ if (!apiKey || apiKey === "replace_with_your_key") {
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const menuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
-const ordersPath = fileURLToPath(new URL("../data/orders.json", import.meta.url));
 const backendStatePath = fileURLToPath(new URL("../data/backend-state.json", import.meta.url));
 const agent = await BackendAgent.create({
   apiKey,
   model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
   skillsPath,
   menuPath,
-  ordersPath,
   backendStatePath,
   businessId: process.env.BUSINESS_ID ?? "business_0001",
   locationId: process.env.LOCATION_ID

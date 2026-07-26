@@ -2,7 +2,7 @@ import { BackendDataStore } from "./backendDataStore.ts";
 import { GeminiClient } from "./geminiClient.ts";
 import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
 import { loadMenu } from "./menu.ts";
-import { OrderStore } from "./orders.ts";
+import { OrderService } from "./orderService.ts";
 import { ReceptionistBackend } from "./receptionistBackend.ts";
 import { SkillExecutor } from "./skillExecutor.ts";
 import { loadSkills, type SkillDefinition } from "./skills.ts";
@@ -40,7 +40,6 @@ export class BackendAgent {
     model: string;
     skillsPath: string;
     menuPath: string;
-    ordersPath?: string;
     backendStatePath?: string;
     businessId?: string;
     locationId?: string;
@@ -48,17 +47,22 @@ export class BackendAgent {
   }): Promise<BackendAgent> {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
-    const orderStore = new OrderStore(options.ordersPath ?? "data/orders.json");
+    const backendStatePath = options.backendStatePath ?? "data/backend-state.json";
+    const backendDataStore = new BackendDataStore(backendStatePath);
     const receptionistBackend = options.backendStatePath
-      ? new ReceptionistBackend(menu, new BackendDataStore(options.backendStatePath))
+      ? new ReceptionistBackend(menu, backendDataStore)
       : undefined;
     const businessId = options.businessId ?? "business_0001";
+    const orderService = new OrderService(menu, backendDataStore);
 
     return new BackendAgent(
       options.apiKey,
       options.model,
       skills,
-      new SkillExecutor(menu, orderStore),
+      new SkillExecutor(menu, orderService, {
+        businessId,
+        ...(options.locationId ? { locationId: options.locationId } : {})
+      }),
       options.fetcher ?? fetch,
       businessId,
       options.locationId,
@@ -149,7 +153,9 @@ export class BackendAgent {
           onSkillDiscovered?.(skill.name);
           let toolResponse: Record<string, unknown>;
           try {
-            toolResponse = this.executor.execute(skill.name, call.args ?? {});
+            toolResponse = this.executor.execute(skill.name, call.args ?? {}, {
+              ...(sessionId ? { conversationSessionId: sessionId } : {})
+            });
           } catch (error) {
             if (sessionId) {
               this.receptionistBackend!.recordToolExecution({

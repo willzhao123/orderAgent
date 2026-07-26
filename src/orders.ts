@@ -1,16 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import type { OrderLine } from "./domain.ts";
 
-export type OrderLine = {
-  menuItemId: string;
-  name: string;
-  quantity: number;
-  category?: string;
-  unitPrice?: number;
-  lineTotal?: number;
-  notes?: string;
-};
-
+/**
+ * @deprecated Use BackendDataStore and the canonical Order type from domain.ts.
+ */
 export type Order = {
   id: string;
   status: "created";
@@ -20,6 +14,9 @@ export type Order = {
   createdAt: string;
 };
 
+/**
+ * @deprecated Active tool execution now uses BackendDataStore through OrderService.
+ */
 export class OrderStore {
   private readonly ordersPath: string;
 

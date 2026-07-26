@@ -21,6 +21,7 @@ import type {
   IntegrationConnection,
   MenuCatalog,
   MenuVersion,
+  Order,
   OrderItem,
   OrderPayment,
   OrderQuote,
@@ -37,28 +38,6 @@ import type {
   EscalationRule,
   ResponseStyle
 } from "./domain.ts";
-
-type BackendOrder = {
-  id: string;
-  businessId: string;
-  locationId?: string;
-  conversationSessionId?: string;
-  customerId?: string;
-  status: OrderStatus;
-  fulfillmentType?: "pickup" | "delivery" | "dine_in";
-  items: OrderItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  currency: "USD";
-  customerName?: string;
-  customerPhone?: string;
-  specialInstructions?: string;
-  confirmedAt?: string;
-  posSubmissionId?: string;
-  createdAt: string;
-  updatedAt: string;
-};
 
 export type BackendState = {
   businesses: Business[];
@@ -78,7 +57,7 @@ export type BackendState = {
   transcriptSegments: TranscriptSegment[];
   agentResponses: AgentResponse[];
   detectedIntents: DetectedIntent[];
-  orders: BackendOrder[];
+  orders: Order[];
   orderQuotes: OrderQuote[];
   orderPayments: OrderPayment[];
   orderStatusHistory: OrderStatusHistory[];
@@ -359,15 +338,15 @@ export class BackendDataStore {
     locationId?: string;
     conversationSessionId?: string;
     customerId?: string;
-    fulfillmentType?: BackendOrder["fulfillmentType"];
+    fulfillmentType?: Order["fulfillmentType"];
     customerName?: string;
     customerPhone?: string;
     items?: OrderItem[];
     specialInstructions?: string;
-  }): BackendOrder {
+  }): Order {
     const state = this.read();
     const timestamp = now();
-    const order: BackendOrder = {
+    const order: Order = {
       id: nextId("order", state.orders.map((candidate) => candidate.id)),
       businessId: input.businessId,
       ...(input.locationId ? { locationId: input.locationId } : {}),
@@ -399,10 +378,14 @@ export class BackendDataStore {
     return order;
   }
 
+  getOrder(orderId: string): Order | undefined {
+    return this.read().orders.find((order) => order.id === orderId);
+  }
+
   updateDraftOrder(orderId: string, patch: Partial<Pick<
-    BackendOrder,
+    Order,
     "fulfillmentType" | "customerName" | "customerPhone" | "items" | "specialInstructions"
-  >>): BackendOrder {
+  >>): Order {
     const state = this.read();
     const order = this.requireOrder(state, orderId);
     if (order.status !== "draft" && order.status !== "awaiting_confirmation") {
@@ -415,6 +398,14 @@ export class BackendDataStore {
     this.reprice(order);
     this.write(state);
     return order;
+  }
+
+  updateOrderItems(orderId: string, items: OrderItem[]): Order {
+    return this.updateDraftOrder(orderId, { items });
+  }
+
+  clearOrderItems(orderId: string): Order {
+    return this.updateOrderItems(orderId, []);
   }
 
   identifyMissingOrderInformation(orderId: string): string[] {
@@ -444,11 +435,11 @@ export class BackendDataStore {
     return quote;
   }
 
-  markAwaitingConfirmation(orderId: string): BackendOrder {
+  markAwaitingConfirmation(orderId: string): Order {
     return this.transitionOrder(orderId, "awaiting_confirmation", "Order is complete enough to confirm.");
   }
 
-  confirmOrder(orderId: string): BackendOrder {
+  confirmOrder(orderId: string): Order {
     const state = this.read();
     const order = this.requireOrder(state, orderId);
     const missing = this.missingOrderInformation(order);
@@ -461,7 +452,7 @@ export class BackendDataStore {
     return order;
   }
 
-  private transitionOrder(orderId: string, toStatus: OrderStatus, reason: string): BackendOrder {
+  private transitionOrder(orderId: string, toStatus: OrderStatus, reason: string): Order {
     const state = this.read();
     const order = this.requireOrder(state, orderId);
     this.transitionOrderInState(state, order, toStatus, reason);
@@ -471,7 +462,7 @@ export class BackendDataStore {
 
   private transitionOrderInState(
     state: BackendState,
-    order: BackendOrder,
+    order: Order,
     toStatus: OrderStatus,
     reason: string
   ): void {
@@ -490,7 +481,7 @@ export class BackendDataStore {
     });
   }
 
-  private missingOrderInformation(order: BackendOrder): string[] {
+  private missingOrderInformation(order: Order): string[] {
     return [
       ...(order.items.length === 0 ? ["items"] : []),
       ...(!order.fulfillmentType ? ["fulfillment_type"] : []),
@@ -498,7 +489,7 @@ export class BackendDataStore {
     ];
   }
 
-  private reprice(order: BackendOrder): void {
+  private reprice(order: Order): void {
     order.subtotal = order.items.reduce((total, item) => total + (item.lineTotal ?? 0), 0);
     order.tax = 0;
     order.total = order.subtotal + order.tax;
@@ -510,7 +501,7 @@ export class BackendDataStore {
     return session;
   }
 
-  private requireOrder(state: BackendState, orderId: string): BackendOrder {
+  private requireOrder(state: BackendState, orderId: string): Order {
     const order = state.orders.find((candidate) => candidate.id === orderId);
     if (!order) throw new Error(`No order matches id: ${orderId}`);
     return order;
