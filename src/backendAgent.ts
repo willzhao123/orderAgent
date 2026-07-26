@@ -2,6 +2,7 @@ import { BackendDataStore } from "./backendDataStore.ts";
 import { GeminiClient } from "./geminiClient.ts";
 import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
 import { loadMenu } from "./menu.ts";
+import { MenuService } from "./menuService.ts";
 import { OrderService } from "./orderService.ts";
 import { ReceptionistBackend } from "./receptionistBackend.ts";
 import { SkillExecutor } from "./skillExecutor.ts";
@@ -47,19 +48,20 @@ export class BackendAgent {
   }): Promise<BackendAgent> {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
+    const menuService = new MenuService(menu);
     const backendStatePath = options.backendStatePath ?? "data/backend-state.json";
     const backendDataStore = new BackendDataStore(backendStatePath);
     const receptionistBackend = options.backendStatePath
-      ? new ReceptionistBackend(menu, backendDataStore)
+      ? new ReceptionistBackend(menuService, backendDataStore)
       : undefined;
     const businessId = options.businessId ?? "business_0001";
-    const orderService = new OrderService(menu, backendDataStore);
+    const orderService = new OrderService(menuService, backendDataStore);
 
     return new BackendAgent(
       options.apiKey,
       options.model,
       skills,
-      new SkillExecutor(menu, orderService, {
+      new SkillExecutor(menuService, orderService, {
         businessId,
         ...(options.locationId ? { locationId: options.locationId } : {})
       }),

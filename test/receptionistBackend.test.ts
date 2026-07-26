@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { BackendDataStore } from "../src/backendDataStore.ts";
 import { loadMenu } from "../src/menu.ts";
+import { MenuService } from "../src/menuService.ts";
 import { ReceptionistBackend } from "../src/receptionistBackend.ts";
 
 const defaultMenuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
@@ -20,7 +21,7 @@ async function createBackend(): Promise<{
   const menu = await loadMenu(defaultMenuPath);
   const store = new BackendDataStore(statePath);
   return {
-    backend: new ReceptionistBackend(menu, store),
+    backend: new ReceptionistBackend(new MenuService(menu), store),
     store,
     statePath
   };

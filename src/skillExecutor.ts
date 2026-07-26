@@ -1,14 +1,18 @@
-import type { Menu } from "./menu.ts";
+import type { MenuService } from "./menuService.ts";
 import type { OrderService, OrderServiceContext } from "./orderService.ts";
 import { getSkillRegistryEntry, messageRequiresSkill } from "./skillRegistry.ts";
 
 export class SkillExecutor {
-  private readonly menu: Menu;
+  private readonly menuService: MenuService;
   private readonly orderService: OrderService;
   private readonly defaultOrderContext: OrderServiceContext;
 
-  constructor(menu: Menu, orderService: OrderService, defaultOrderContext: OrderServiceContext) {
-    this.menu = menu;
+  constructor(
+    menuService: MenuService,
+    orderService: OrderService,
+    defaultOrderContext: OrderServiceContext
+  ) {
+    this.menuService = menuService;
     this.orderService = orderService;
     this.defaultOrderContext = defaultOrderContext;
   }
@@ -21,7 +25,7 @@ export class SkillExecutor {
     const registryEntry = getSkillRegistryEntry(name);
     if (!registryEntry) throw new Error(`No trusted handler exists for skill: ${name}`);
     return registryEntry.execute({
-      menu: this.menu,
+      menuService: this.menuService,
       orderService: this.orderService,
       orderContext: {
         ...this.defaultOrderContext,

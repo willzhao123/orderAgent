@@ -1,6 +1,7 @@
 import { BackendDataStore } from "./backendDataStore.ts";
 import type { FulfillmentType, Order, OrderItem } from "./domain.ts";
-import type { Menu, MenuItem } from "./menu.ts";
+import type { MenuItem } from "./menu.ts";
+import { MenuService } from "./menuService.ts";
 
 export type RequestedOrderItem = {
   item: string;
@@ -21,95 +22,6 @@ export type OrderServiceContext = {
 
 function normalize(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
-function tokens(value: string): string[] {
-  return normalize(value)
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length > 1);
-}
-
-function summarizeMenuItem(item: MenuItem): Record<string, unknown> {
-  return {
-    id: item.id,
-    name: item.name,
-    ...(item.category ? { category: item.category } : {}),
-    ...(item.price !== undefined ? { price: item.price } : {})
-  };
-}
-
-function exactItemMatches(menuItems: MenuItem[], query: string): MenuItem[] {
-  const normalizedQuery = normalize(query);
-  return menuItems.filter((item) =>
-    item.id === normalizedQuery ||
-    item.aliases.some((alias) => normalize(alias) === normalizedQuery)
-  );
-}
-
-function containedItemMatches(menuItems: MenuItem[], query: string): MenuItem[] {
-  const normalizedQuery = normalize(query);
-  return menuItems.filter((item) =>
-    item.aliases.some((alias) => normalize(alias).includes(normalizedQuery))
-  );
-}
-
-function closeMatches(menuItems: MenuItem[], query: string): MenuItem[] {
-  const queryTokens = new Set(tokens(query));
-  if (queryTokens.size === 0) return [];
-
-  return menuItems
-    .map((item) => {
-      const itemTokens = item.aliases.flatMap((alias) => tokens(alias));
-      const score = itemTokens.filter((token) => queryTokens.has(token)).length;
-      return { item, score };
-    })
-    .filter(({ score }) => score > 0)
-    .sort((left, right) => right.score - left.score)
-    .map(({ item }) => item);
-}
-
-function topCandidates(items: MenuItem[], limit = 5): Record<string, unknown>[] {
-  return items.slice(0, limit).map(summarizeMenuItem);
-}
-
-function resolveMenuItem(menuItems: MenuItem[], query: string): {
-  item?: MenuItem;
-  issue?: Record<string, unknown>;
-} {
-  const exactMatches = exactItemMatches(menuItems, query);
-  if (exactMatches.length === 1) return { item: exactMatches[0] };
-  if (exactMatches.length > 1) {
-    return {
-      issue: {
-        item: query,
-        reason: "ambiguous",
-        matches: topCandidates(exactMatches),
-        message: "Multiple menu items match that order item. Ask which one they mean."
-      }
-    };
-  }
-
-  const containedMatches = containedItemMatches(menuItems, query);
-  if (containedMatches.length === 1) return { item: containedMatches[0] };
-  if (containedMatches.length > 1) {
-    return {
-      issue: {
-        item: query,
-        reason: "ambiguous",
-        matches: topCandidates(containedMatches),
-        message: "Several menu items match that order item. Ask which one they mean."
-      }
-    };
-  }
-
-  return {
-    issue: {
-      item: query,
-      reason: "not_found",
-      matches: topCandidates(closeMatches(menuItems, query)),
-      message: "That order item is not on the approved menu. Offer close matches if present."
-    }
-  };
 }
 
 function nextLineId(items: OrderItem[]): string {
@@ -213,18 +125,18 @@ function findOrderLineIndex(order: Order, itemQuery: string): {
 }
 
 export class OrderService {
-  private readonly menu: Menu;
+  private readonly menuService: MenuService;
   private readonly store: BackendDataStore;
 
-  constructor(menu: Menu, store: BackendDataStore) {
-    this.menu = menu;
+  constructor(menuService: MenuService, store: BackendDataStore) {
+    this.menuService = menuService;
     this.store = store;
   }
 
   createOrder(items: RequestedOrderItem[], context: OrderServiceContext): Record<string, unknown> {
     const resolved = items.map((requestedItem) => ({
       requestedItem,
-      ...resolveMenuItem(this.menu.items, requestedItem.item)
+      ...this.menuService.resolveMenuItem(requestedItem.item)
     }));
     const issues = resolved.flatMap((result) => result.issue ? [result.issue] : []);
 
@@ -266,7 +178,7 @@ export class OrderService {
     const order = this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
-    const resolved = resolveMenuItem(this.menu.items, requestedItem.item);
+    const resolved = this.menuService.resolveMenuItem(requestedItem.item);
     if (!resolved.item) {
       return {
         added: false,

@@ -1,6 +1,7 @@
 import { BackendDataStore } from "./backendDataStore.ts";
 import type { ConversationSession, FulfillmentType, OrderItem } from "./domain.ts";
-import type { Menu, MenuItem } from "./menu.ts";
+import type { MenuItem } from "./menu.ts";
+import { MenuService } from "./menuService.ts";
 
 type DraftOrderItemInput = {
   item: string;
@@ -19,71 +20,6 @@ type BuildDraftOrderInput = {
   items: DraftOrderItemInput[];
   specialInstructions?: string;
 };
-
-function normalize(value: string): string {
-  return value.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
-function exactItemMatches(menuItems: MenuItem[], query: string): MenuItem[] {
-  const normalizedQuery = normalize(query);
-  return menuItems.filter((item) =>
-    item.id === normalizedQuery ||
-    item.aliases.some((alias) => normalize(alias) === normalizedQuery)
-  );
-}
-
-function containedItemMatches(menuItems: MenuItem[], query: string): MenuItem[] {
-  const normalizedQuery = normalize(query);
-  return menuItems.filter((item) =>
-    item.aliases.some((alias) => normalize(alias).includes(normalizedQuery))
-  );
-}
-
-function summarizeMenuItem(item: MenuItem): Record<string, unknown> {
-  return {
-    id: item.id,
-    name: item.name,
-    ...(item.category ? { category: item.category } : {}),
-    ...(item.price !== undefined ? { price: item.price } : {})
-  };
-}
-
-function resolveMenuItem(menu: Menu, query: string): {
-  item?: MenuItem;
-  issue?: Record<string, unknown>;
-} {
-  const exactMatches = exactItemMatches(menu.items, query);
-  if (exactMatches.length === 1) return { item: exactMatches[0] };
-  if (exactMatches.length > 1) {
-    return {
-      issue: {
-        item: query,
-        reason: "ambiguous",
-        matches: exactMatches.slice(0, 5).map(summarizeMenuItem)
-      }
-    };
-  }
-
-  const containedMatches = containedItemMatches(menu.items, query);
-  if (containedMatches.length === 1) return { item: containedMatches[0] };
-  if (containedMatches.length > 1) {
-    return {
-      issue: {
-        item: query,
-        reason: "ambiguous",
-        matches: containedMatches.slice(0, 5).map(summarizeMenuItem)
-      }
-    };
-  }
-
-  return {
-    issue: {
-      item: query,
-      reason: "not_found",
-      matches: []
-    }
-  };
-}
 
 function toOrderItem(menuItem: MenuItem, requestedItem: DraftOrderItemInput, index: number): OrderItem {
   const unitPrice = typeof menuItem.price === "number" ? menuItem.price : undefined;
@@ -109,11 +45,11 @@ function toOrderItem(menuItem: MenuItem, requestedItem: DraftOrderItemInput, ind
 }
 
 export class ReceptionistBackend {
-  private readonly menu: Menu;
+  private readonly menuService: MenuService;
   private readonly store: BackendDataStore;
 
-  constructor(menu: Menu, store: BackendDataStore) {
-    this.menu = menu;
+  constructor(menuService: MenuService, store: BackendDataStore) {
+    this.menuService = menuService;
     this.store = store;
   }
 
@@ -220,7 +156,7 @@ export class ReceptionistBackend {
   buildDraftOrder(input: BuildDraftOrderInput): Record<string, unknown> {
     const resolved = input.items.map((requestedItem) => ({
       requestedItem,
-      ...resolveMenuItem(this.menu, requestedItem.item)
+      ...this.menuService.resolveMenuItem(requestedItem.item)
     }));
     const issues = resolved.flatMap((result) => result.issue ? [result.issue] : []);
 
