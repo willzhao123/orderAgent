@@ -1,7 +1,9 @@
+import { BackendDataStore } from "./backendDataStore.ts";
 import { GeminiClient } from "./geminiClient.ts";
 import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
 import { loadMenu } from "./menu.ts";
 import { OrderStore } from "./orders.ts";
+import { ReceptionistBackend } from "./receptionistBackend.ts";
 import { SkillExecutor } from "./skillExecutor.ts";
 import { loadSkills, type SkillDefinition } from "./skills.ts";
 
@@ -9,18 +11,28 @@ export class BackendAgent {
   private readonly skills: SkillDefinition[];
   private readonly executor: SkillExecutor;
   private readonly gemini: GeminiClient;
+  private readonly receptionistBackend?: ReceptionistBackend;
+  private readonly businessId: string;
+  private readonly locationId?: string;
   private readonly history: GeminiContent[] = [];
+  private currentSessionId?: string;
 
   private constructor(
     apiKey: string,
     model: string,
     skills: SkillDefinition[],
     executor: SkillExecutor,
-    fetcher: FetchLike
+    fetcher: FetchLike,
+    businessId: string,
+    locationId?: string,
+    receptionistBackend?: ReceptionistBackend
   ) {
     this.skills = skills;
     this.executor = executor;
     this.gemini = new GeminiClient(apiKey, model, skills, fetcher);
+    this.businessId = businessId;
+    this.locationId = locationId;
+    this.receptionistBackend = receptionistBackend;
   }
 
   static async create(options: {
@@ -29,19 +41,48 @@ export class BackendAgent {
     skillsPath: string;
     menuPath: string;
     ordersPath?: string;
+    backendStatePath?: string;
+    businessId?: string;
+    locationId?: string;
     fetcher?: FetchLike;
   }): Promise<BackendAgent> {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
     const orderStore = new OrderStore(options.ordersPath ?? "data/orders.json");
+    const receptionistBackend = options.backendStatePath
+      ? new ReceptionistBackend(menu, new BackendDataStore(options.backendStatePath))
+      : undefined;
+    const businessId = options.businessId ?? "business_0001";
 
     return new BackendAgent(
       options.apiKey,
       options.model,
       skills,
       new SkillExecutor(menu, orderStore),
-      options.fetcher ?? fetch
+      options.fetcher ?? fetch,
+      businessId,
+      options.locationId,
+      receptionistBackend
     );
+  }
+
+  startPhoneCall(options: {
+    callerPhone?: string;
+    toPhone?: string;
+    provider?: string;
+    providerCallId?: string;
+  } = {}): string {
+    if (!this.receptionistBackend) {
+      throw new Error("BackendAgent was created without backendStatePath; session persistence is disabled.");
+    }
+
+    const session = this.receptionistBackend.createPhoneSession({
+      businessId: this.businessId,
+      ...(this.locationId ? { locationId: this.locationId } : {}),
+      ...options
+    });
+    this.currentSessionId = session.id;
+    return session.id;
   }
 
   describeSkills(): string {
@@ -55,8 +96,19 @@ export class BackendAgent {
 
   async chat(
     message: string,
-    onSkillDiscovered?: (name: string) => void
+    onSkillDiscovered?: (name: string) => void,
+    options: { sessionId?: string } = {}
   ): Promise<string> {
+    const sessionId = this.ensureSession(options.sessionId);
+    if (sessionId) {
+      this.receptionistBackend!.addCallerTurn({
+        conversationSessionId: sessionId,
+        businessId: this.businessId,
+        ...(this.locationId ? { locationId: this.locationId } : {}),
+        text: message
+      });
+    }
+
     const userContent: GeminiContent = {
       role: "user",
       parts: [{ text: message }]
@@ -76,7 +128,16 @@ export class BackendAgent {
         if (step === 0 && this.executor.requiresSkill(message)) {
           throw new Error("The model answered without calling a required skill.");
         }
-        return this.readText(response);
+        const text = this.readText(response);
+        if (sessionId) {
+          this.receptionistBackend!.addAgentTurn({
+            conversationSessionId: sessionId,
+            businessId: this.businessId,
+            ...(this.locationId ? { locationId: this.locationId } : {}),
+            text
+          });
+        }
+        return text;
       }
 
       const toolContent: GeminiContent = {
@@ -86,10 +147,34 @@ export class BackendAgent {
           if (!skill) throw new Error(`Model requested an unknown skill: ${call.name}`);
 
           onSkillDiscovered?.(skill.name);
+          let toolResponse: Record<string, unknown>;
+          try {
+            toolResponse = this.executor.execute(skill.name, call.args ?? {});
+          } catch (error) {
+            if (sessionId) {
+              this.receptionistBackend!.recordToolExecution({
+                sessionId,
+                name: skill.name,
+                ...(call.id ? { toolCallId: call.id } : {}),
+                args: call.args ?? {},
+                errorMessage: error instanceof Error ? error.message : String(error)
+              });
+            }
+            throw error;
+          }
+          if (sessionId) {
+            this.receptionistBackend!.recordToolExecution({
+              sessionId,
+              name: skill.name,
+              ...(call.id ? { toolCallId: call.id } : {}),
+              args: call.args ?? {},
+              response: toolResponse
+            });
+          }
           return {
             functionResponse: {
               name: skill.name,
-              response: this.executor.execute(skill.name, call.args ?? {}),
+              response: toolResponse,
               ...(call.id ? { id: call.id } : {})
             }
           };
@@ -114,5 +199,15 @@ export class BackendAgent {
     return content.parts.flatMap((part) =>
       "functionCall" in part ? [part.functionCall] : []
     );
+  }
+
+  private ensureSession(sessionId?: string): string | undefined {
+    if (!this.receptionistBackend) return undefined;
+    if (sessionId) {
+      this.currentSessionId = sessionId;
+      return sessionId;
+    }
+    if (this.currentSessionId) return this.currentSessionId;
+    return this.startPhoneCall();
   }
 }
