@@ -17,6 +17,7 @@ import type {
   CustomerPreference,
   DetectedIntent,
   HolidayHours,
+  HandoffStatus,
   HumanHandoff,
   IntegrationConnection,
   MenuCatalog,
@@ -84,6 +85,12 @@ export type CreateConversationSessionInput = {
   toPhone?: string;
   callProvider?: string;
   providerCallId?: string;
+};
+
+export type UpdateHandoffInput = {
+  conversationSessionId: string;
+  status: HandoffStatus;
+  reason?: string;
 };
 
 const EMPTY_STATE: BackendState = {
@@ -170,6 +177,9 @@ export class BackendDataStore {
       ...(input.customerId ? { customerId: input.customerId } : {}),
       channel: input.channel,
       currentState: "new",
+      ...(input.callerPhone ? { callerPhone: input.callerPhone } : {}),
+      ...(input.toPhone ? { toPhone: input.toPhone } : {}),
+      handoffStatus: "none",
       startedAt: timestamp,
       updatedAt: timestamp
     };
@@ -184,7 +194,8 @@ export class BackendDataStore {
         ...(input.providerCallId ? { providerCallId: input.providerCallId } : {}),
         ...(input.callerPhone ? { fromPhone: input.callerPhone } : {}),
         ...(input.toPhone ? { toPhone: input.toPhone } : {}),
-        startedAt: timestamp
+        startedAt: timestamp,
+        status: "in_progress"
       };
       state.callSessions.push(callSession);
     }
@@ -207,6 +218,7 @@ export class BackendDataStore {
     const state = this.read();
     const session = this.requireSession(state, input.conversationSessionId);
     const timestamp = now();
+    const turnId = nextId("turn", state.conversationTurns.map((candidate) => candidate.id));
     const transcriptSegmentIds: string[] = [];
     const detectedIntentIds: string[] = [];
     let agentResponseId: string | undefined;
@@ -216,6 +228,7 @@ export class BackendDataStore {
         const response: AgentResponse = {
           id: nextId("response", state.agentResponses.map((candidate) => candidate.id)),
           conversationSessionId: session.id,
+          turnId,
           text: input.text,
           createdAt: timestamp
         };
@@ -226,6 +239,7 @@ export class BackendDataStore {
       const segment: TranscriptSegment = {
         id: nextId("segment", state.transcriptSegments.map((candidate) => candidate.id)),
         conversationSessionId: session.id,
+        turnId,
         speaker: input.role === "caller" ? "caller" : "agent",
         text: input.text,
         ...(input.confidence !== undefined ? { confidence: input.confidence } : {}),
@@ -236,13 +250,14 @@ export class BackendDataStore {
     }
 
     const turn: ConversationTurn = {
-      id: nextId("turn", state.conversationTurns.map((candidate) => candidate.id)),
+      id: turnId,
       conversationSessionId: session.id,
       role: input.role,
       ...(input.text ? { text: input.text } : {}),
       transcriptSegmentIds,
       detectedIntentIds,
       ...(agentResponseId ? { agentResponseId } : {}),
+      ...(input.confidence !== undefined ? { confidence: input.confidence } : {}),
       createdAt: timestamp
     };
 
@@ -258,6 +273,9 @@ export class BackendDataStore {
       };
       state.detectedIntents.push(intent);
       turn.detectedIntentIds.push(intent.id);
+      session.confidence = input.detectedIntent.confidence;
+    } else if (input.confidence !== undefined) {
+      session.confidence = input.confidence;
     }
 
     session.updatedAt = timestamp;
@@ -281,6 +299,37 @@ export class BackendDataStore {
     return session;
   }
 
+  updateHandoffStatus(input: UpdateHandoffInput): ConversationSession {
+    const state = this.read();
+    const session = this.requireSession(state, input.conversationSessionId);
+    session.handoffStatus = input.status;
+    if (input.reason !== undefined) session.handoffReason = input.reason;
+    if (input.status === "requested") session.currentState = "handoff_requested";
+    if (input.status === "connected") session.currentState = "handoff_connected";
+    session.updatedAt = now();
+    this.write(state);
+    return session;
+  }
+
+  closeConversationSession(conversationSessionId: string): ConversationSession {
+    const state = this.read();
+    const session = this.requireSession(state, conversationSessionId);
+    const timestamp = now();
+    session.currentState = "closed";
+    session.updatedAt = timestamp;
+    session.closedAt = timestamp;
+
+    for (const call of state.callSessions) {
+      if (call.conversationSessionId === conversationSessionId && !call.endedAt) {
+        call.endedAt = timestamp;
+        call.status = "completed";
+      }
+    }
+
+    this.write(state);
+    return session;
+  }
+
   recordToolCall(input: {
     conversationSessionId?: string;
     orderId?: string;
@@ -292,9 +341,16 @@ export class BackendDataStore {
   }): ToolCall {
     const state = this.read();
     const timestamp = now();
+    const session = input.conversationSessionId
+      ? this.requireSession(state, input.conversationSessionId)
+      : undefined;
+    const turnId = session
+      ? nextId("turn", state.conversationTurns.map((candidate) => candidate.id))
+      : undefined;
     const toolCall: ToolCall = {
       id: input.toolCallId ?? nextId("tool", state.toolCalls.map((candidate) => candidate.id)),
       ...(input.conversationSessionId ? { conversationSessionId: input.conversationSessionId } : {}),
+      ...(turnId ? { turnId } : {}),
       ...(input.orderId ? { orderId: input.orderId } : {}),
       name: input.name,
       input: input.args,
@@ -305,6 +361,18 @@ export class BackendDataStore {
       completedAt: timestamp
     };
     state.toolCalls.push(toolCall);
+    if (session && turnId) {
+      state.conversationTurns.push({
+        id: turnId,
+        conversationSessionId: session.id,
+        role: "tool",
+        toolCallId: toolCall.id,
+        transcriptSegmentIds: [],
+        detectedIntentIds: [],
+        createdAt: timestamp
+      });
+      session.updatedAt = timestamp;
+    }
     this.write(state);
     return toolCall;
   }

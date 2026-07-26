@@ -54,13 +54,56 @@ test("creates a phone session and stores transcript turns outside chat history",
   const state = store.read();
   assert.equal(state.conversationSessions.length, 1);
   assert.equal(state.conversationSessions[0]!.currentState, "new");
+  assert.equal(state.conversationSessions[0]!.callerPhone, "+13125550100");
+  assert.equal(state.conversationSessions[0]!.toPhone, "+13125550199");
+  assert.equal(state.conversationSessions[0]!.channel, "phone");
+  assert.equal(state.conversationSessions[0]!.handoffStatus, "none");
   assert.equal(state.callSessions[0]!.providerCallId, "CA123");
+  assert.equal(state.callSessions[0]!.fromPhone, "+13125550100");
+  assert.equal(state.callSessions[0]!.status, "in_progress");
   assert.equal(state.transcriptSegments[0]!.text, "I want two egg rolls.");
+  assert.equal(state.transcriptSegments[0]!.turnId, state.conversationTurns[0]!.id);
+  assert.equal(state.conversationTurns[0]!.confidence, 0.93);
   assert.equal(state.detectedIntents[0]!.name, "order.add_item");
+  assert.equal(state.detectedIntents[0]!.turnId, state.conversationTurns[0]!.id);
+  assert.equal(state.conversationSessions[0]!.confidence, 0.9);
   assert.deepEqual(
     state.businessEvents.map((event) => event.type),
     ["conversation.session_created", "conversation.turn_added"]
   );
+});
+
+test("records tool calls as session turns and supports handoff and close lifecycle", async () => {
+  const { backend, store } = await createBackend();
+  const session = backend.createPhoneSession({
+    businessId: "business_0001",
+    callerPhone: "+13125550100"
+  });
+
+  backend.recordToolExecution({
+    sessionId: session.id,
+    name: "check_menu_item",
+    args: { item_name: "Egg Rolls" },
+    response: { found: true }
+  });
+
+  store.updateHandoffStatus({
+    conversationSessionId: session.id,
+    status: "requested",
+    reason: "Caller asked for a person."
+  });
+  store.closeConversationSession(session.id);
+
+  const state = store.read();
+  assert.equal(state.toolCalls[0]!.turnId, state.conversationTurns[0]!.id);
+  assert.equal(state.conversationTurns[0]!.role, "tool");
+  assert.equal(state.conversationTurns[0]!.toolCallId, state.toolCalls[0]!.id);
+  assert.equal(state.conversationSessions[0]!.handoffStatus, "requested");
+  assert.equal(state.conversationSessions[0]!.handoffReason, "Caller asked for a person.");
+  assert.equal(state.conversationSessions[0]!.currentState, "closed");
+  assert.equal(state.conversationSessions[0]!.closedAt?.startsWith("20"), true);
+  assert.equal(state.callSessions[0]!.status, "completed");
+  assert.equal(state.callSessions[0]!.endedAt?.startsWith("20"), true);
 });
 
 test("builds a deterministic draft order and identifies missing confirmation data", async () => {

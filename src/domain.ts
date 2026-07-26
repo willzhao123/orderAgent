@@ -158,8 +158,11 @@ export type ConversationState =
   | "quoting"
   | "awaiting_confirmation"
   | "confirmed"
-  | "handoff"
+  | "handoff_requested"
+  | "handoff_connected"
   | "closed";
+
+export type HandoffStatus = "none" | "requested" | "connected" | "missed" | "cancelled";
 
 export type ConversationSession = {
   id: string;
@@ -168,8 +171,12 @@ export type ConversationSession = {
   customerId?: string;
   channel: ConversationChannel;
   currentState: ConversationState;
+  callerPhone?: string;
+  toPhone?: string;
   orderId?: string;
   confidence?: number;
+  handoffStatus?: HandoffStatus;
+  handoffReason?: string;
   startedAt: ISODateTime;
   updatedAt: ISODateTime;
   closedAt?: ISODateTime;
@@ -183,23 +190,28 @@ export type CallSession = {
   fromPhone?: string;
   toPhone?: string;
   startedAt: ISODateTime;
+  answeredAt?: ISODateTime;
   endedAt?: ISODateTime;
+  status: "ringing" | "in_progress" | "completed" | "failed";
 };
 
 export type ConversationTurn = {
   id: string;
   conversationSessionId: string;
-  role: "caller" | "agent" | "tool";
+  role: "caller" | "agent" | "tool" | "system";
   text?: string;
   transcriptSegmentIds: string[];
   detectedIntentIds: string[];
   agentResponseId?: string;
+  toolCallId?: string;
+  confidence?: number;
   createdAt: ISODateTime;
 };
 
 export type TranscriptSegment = {
   id: string;
   conversationSessionId: string;
+  turnId?: string;
   speaker: "caller" | "agent";
   text: string;
   confidence?: number;
@@ -211,7 +223,9 @@ export type TranscriptSegment = {
 export type AgentResponse = {
   id: string;
   conversationSessionId: string;
+  turnId?: string;
   text: string;
+  model?: string;
   responseStyleId?: string;
   createdAt: ISODateTime;
 };
@@ -316,6 +330,7 @@ export type OrderStatusHistory = {
 export type ToolCall = {
   id: string;
   conversationSessionId?: string;
+  turnId?: string;
   orderId?: string;
   name: string;
   input: Record<string, unknown>;
