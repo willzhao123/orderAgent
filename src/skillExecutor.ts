@@ -17,14 +17,14 @@ export class SkillExecutor {
     this.defaultOrderContext = defaultOrderContext;
   }
 
-  execute(
+  async execute(
     name: string,
     input: Record<string, unknown>,
     orderContext: Partial<OrderServiceContext> = {}
-  ): Record<string, unknown> {
+  ): Promise<Record<string, unknown>> {
     const registryEntry = getSkillRegistryEntry(name);
     if (!registryEntry) throw new Error(`No trusted handler exists for skill: ${name}`);
-    return registryEntry.execute({
+    return await registryEntry.execute({
       menuService: this.menuService,
       orderService: this.orderService,
       orderContext: {

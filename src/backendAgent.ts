@@ -3,8 +3,9 @@ import { GeminiClient } from "./geminiClient.ts";
 import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
 import { loadMenu } from "./menu.ts";
 import { MenuService } from "./menuService.ts";
-import { OrderService } from "./orderService.ts";
+import { OrderService, type OrderStore } from "./orderService.ts";
 import { ReceptionistBackend } from "./receptionistBackend.ts";
+import { MemorySessionStore, type SessionStore } from "./sessionStore.ts";
 import { SkillExecutor } from "./skillExecutor.ts";
 import { loadSkills, type SkillDefinition } from "./skills.ts";
 
@@ -15,8 +16,9 @@ export class BackendAgent {
   private readonly receptionistBackend?: ReceptionistBackend;
   private readonly businessId: string;
   private readonly locationId?: string;
-  private readonly history: GeminiContent[] = [];
+  private readonly sessionStore: SessionStore;
   private currentSessionId?: string;
+  private currentReceptionistSessionId?: string;
 
   private constructor(
     apiKey: string,
@@ -25,6 +27,7 @@ export class BackendAgent {
     executor: SkillExecutor,
     fetcher: FetchLike,
     businessId: string,
+    sessionStore: SessionStore,
     locationId?: string,
     receptionistBackend?: ReceptionistBackend
   ) {
@@ -32,6 +35,7 @@ export class BackendAgent {
     this.executor = executor;
     this.gemini = new GeminiClient(apiKey, model, skills, fetcher);
     this.businessId = businessId;
+    this.sessionStore = sessionStore;
     this.locationId = locationId;
     this.receptionistBackend = receptionistBackend;
   }
@@ -45,6 +49,8 @@ export class BackendAgent {
     businessId?: string;
     locationId?: string;
     fetcher?: FetchLike;
+    sessionStore?: SessionStore;
+    orderStore?: OrderStore;
   }): Promise<BackendAgent> {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
@@ -55,7 +61,10 @@ export class BackendAgent {
       ? new ReceptionistBackend(menuService, backendDataStore)
       : undefined;
     const businessId = options.businessId ?? "business_0001";
-    const orderService = new OrderService(menuService, backendDataStore);
+    const orderService = new OrderService(
+      menuService,
+      options.orderStore ?? backendDataStore
+    );
 
     return new BackendAgent(
       options.apiKey,
@@ -67,28 +76,30 @@ export class BackendAgent {
       }),
       options.fetcher ?? fetch,
       businessId,
+      options.sessionStore ?? new MemorySessionStore(),
       options.locationId,
       receptionistBackend
     );
   }
 
-  startPhoneCall(options: {
+  async startPhoneCall(options: {
     callerPhone?: string;
     toPhone?: string;
     provider?: string;
     providerCallId?: string;
-  } = {}): string {
-    if (!this.receptionistBackend) {
-      throw new Error("BackendAgent was created without backendStatePath; session persistence is disabled.");
+  } = {}): Promise<string> {
+    const sessionId = await this.sessionStore.createSession(options.callerPhone);
+    if (this.receptionistBackend) {
+      const session = this.receptionistBackend.createPhoneSession({
+        businessId: this.businessId,
+        ...(this.locationId ? { locationId: this.locationId } : {}),
+        ...options
+      });
+      this.currentReceptionistSessionId = session.id;
     }
 
-    const session = this.receptionistBackend.createPhoneSession({
-      businessId: this.businessId,
-      ...(this.locationId ? { locationId: this.locationId } : {}),
-      ...options
-    });
-    this.currentSessionId = session.id;
-    return session.id;
+    this.currentSessionId = sessionId;
+    return sessionId;
   }
 
   describeSkills(): string {
@@ -105,10 +116,10 @@ export class BackendAgent {
     onSkillDiscovered?: (name: string) => void,
     options: { sessionId?: string } = {}
   ): Promise<string> {
-    const sessionId = this.ensureSession(options.sessionId);
-    if (sessionId) {
+    const sessionId = await this.ensureSession(options.sessionId);
+    if (this.receptionistBackend && this.currentReceptionistSessionId) {
       this.receptionistBackend!.addCallerTurn({
-        conversationSessionId: sessionId,
+        conversationSessionId: this.currentReceptionistSessionId,
         businessId: this.businessId,
         ...(this.locationId ? { locationId: this.locationId } : {}),
         text: message
@@ -119,15 +130,17 @@ export class BackendAgent {
       role: "user",
       parts: [{ text: message }]
     };
-    this.history.push(userContent);
+    await this.sessionStore.appendMessage(sessionId, "user", userContent);
 
-    let response = await this.gemini.createResponse(this.history);
+    let response = await this.gemini.createResponse(
+      await this.sessionStore.getHistory(sessionId)
+    );
 
     for (let step = 0; step < 3; step += 1) {
       const modelContent = response.candidates?.[0]?.content;
       if (!modelContent) throw new Error("The API returned no candidate content.");
 
-      this.history.push(modelContent);
+      await this.sessionStore.appendMessage(sessionId, "model", modelContent);
       const calls = this.readFunctionCalls(modelContent);
 
       if (calls.length === 0) {
@@ -135,9 +148,9 @@ export class BackendAgent {
           throw new Error("The model answered without calling a required skill.");
         }
         const text = this.readText(response);
-        if (sessionId) {
+        if (this.receptionistBackend && this.currentReceptionistSessionId) {
           this.receptionistBackend!.addAgentTurn({
-            conversationSessionId: sessionId,
+            conversationSessionId: this.currentReceptionistSessionId,
             businessId: this.businessId,
             ...(this.locationId ? { locationId: this.locationId } : {}),
             text
@@ -148,49 +161,64 @@ export class BackendAgent {
 
       const toolContent: GeminiContent = {
         role: "user",
-        parts: calls.map((call) => {
+        parts: []
+      };
+      for (const call of calls) {
           const skill = this.skills.find((candidate) => candidate.name === call.name);
           if (!skill) throw new Error(`Model requested an unknown skill: ${call.name}`);
 
           onSkillDiscovered?.(skill.name);
           let toolResponse: Record<string, unknown>;
           try {
-            toolResponse = this.executor.execute(skill.name, call.args ?? {}, {
-              ...(sessionId ? { conversationSessionId: sessionId } : {})
+            toolResponse = await this.executor.execute(skill.name, call.args ?? {}, {
+              conversationSessionId: sessionId
             });
           } catch (error) {
-            if (sessionId) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorContent: GeminiContent = {
+              role: "user",
+              parts: [{
+                functionResponse: {
+                  name: skill.name,
+                  response: { error: errorMessage },
+                  ...(call.id ? { id: call.id } : {})
+                }
+              }]
+            };
+            await this.sessionStore.appendMessage(sessionId, "tool", errorContent);
+            if (this.receptionistBackend && this.currentReceptionistSessionId) {
               this.receptionistBackend!.recordToolExecution({
-                sessionId,
+                sessionId: this.currentReceptionistSessionId,
                 name: skill.name,
                 ...(call.id ? { toolCallId: call.id } : {}),
                 args: call.args ?? {},
-                errorMessage: error instanceof Error ? error.message : String(error)
+                errorMessage
               });
             }
             throw error;
           }
-          if (sessionId) {
+          if (this.receptionistBackend && this.currentReceptionistSessionId) {
             this.receptionistBackend!.recordToolExecution({
-              sessionId,
+              sessionId: this.currentReceptionistSessionId,
               name: skill.name,
               ...(call.id ? { toolCallId: call.id } : {}),
               args: call.args ?? {},
               response: toolResponse
             });
           }
-          return {
+          toolContent.parts.push({
             functionResponse: {
               name: skill.name,
               response: toolResponse,
               ...(call.id ? { id: call.id } : {})
             }
-          };
-        })
-      };
+          });
+      }
 
-      this.history.push(toolContent);
-      response = await this.gemini.createResponse(this.history);
+      await this.sessionStore.appendMessage(sessionId, "tool", toolContent);
+      response = await this.gemini.createResponse(
+        await this.sessionStore.getHistory(sessionId)
+      );
     }
 
     throw new Error("The agent exceeded the tool-call limit.");
@@ -209,13 +237,15 @@ export class BackendAgent {
     );
   }
 
-  private ensureSession(sessionId?: string): string | undefined {
-    if (!this.receptionistBackend) return undefined;
+  private async ensureSession(sessionId?: string): Promise<string> {
     if (sessionId) {
+      if (sessionId !== this.currentSessionId) {
+        this.currentReceptionistSessionId = undefined;
+      }
       this.currentSessionId = sessionId;
       return sessionId;
     }
     if (this.currentSessionId) return this.currentSessionId;
-    return this.startPhoneCall();
+    return await this.startPhoneCall();
   }
 }

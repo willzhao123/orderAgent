@@ -2,6 +2,9 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import { BackendAgent } from "./backendAgent.ts";
+import { db } from "./db.ts";
+import { PostgresOrderStore } from "./postgresOrderStore.ts";
+import { PostgresSessionStore } from "./sessionStore.ts";
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey || apiKey === "replace_with_your_key") {
@@ -13,13 +16,13 @@ if (!apiKey || apiKey === "replace_with_your_key") {
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const menuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
-const backendStatePath = fileURLToPath(new URL("../data/backend-state.json", import.meta.url));
 const agent = await BackendAgent.create({
   apiKey,
   model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
   skillsPath,
   menuPath,
-  backendStatePath,
+  sessionStore: new PostgresSessionStore(db),
+  orderStore: new PostgresOrderStore(db),
   businessId: process.env.BUSINESS_ID ?? "business_0001",
   locationId: process.env.LOCATION_ID
 });
@@ -61,3 +64,4 @@ while (true) {
 }
 
 terminal.close();
+await db.end();

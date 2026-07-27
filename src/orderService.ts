@@ -1,7 +1,19 @@
 import { BackendDataStore } from "./backendDataStore.ts";
-import type { FulfillmentType, Order, OrderItem } from "./domain.ts";
+import type { FulfillmentType, Order, OrderItem, OrderQuote } from "./domain.ts";
 import type { MenuItem } from "./menu.ts";
 import { MenuService } from "./menuService.ts";
+import type { CreateDraftOrderInput } from "./repositories.ts";
+
+type MaybePromise<T> = T | Promise<T>;
+
+export interface OrderStore {
+  createDraftOrder(input: CreateDraftOrderInput): MaybePromise<Order>;
+  getOrder(orderId: string): MaybePromise<Order | undefined>;
+  updateOrderItems(orderId: string, items: OrderItem[]): MaybePromise<Order>;
+  clearOrderItems(orderId: string): MaybePromise<Order>;
+  identifyMissingOrderInformation(orderId: string): MaybePromise<string[]>;
+  quoteOrder(orderId: string): MaybePromise<OrderQuote>;
+}
 
 export type RequestedOrderItem = {
   item: string;
@@ -126,14 +138,17 @@ function findOrderLineIndex(order: Order, itemQuery: string): {
 
 export class OrderService {
   private readonly menuService: MenuService;
-  private readonly store: BackendDataStore;
+  private readonly store: OrderStore;
 
-  constructor(menuService: MenuService, store: BackendDataStore) {
+  constructor(menuService: MenuService, store: OrderStore | BackendDataStore) {
     this.menuService = menuService;
     this.store = store;
   }
 
-  createOrder(items: RequestedOrderItem[], context: OrderServiceContext): Record<string, unknown> {
+  async createOrder(
+    items: RequestedOrderItem[],
+    context: OrderServiceContext
+  ): Promise<Record<string, unknown>> {
     const resolved = items.map((requestedItem) => ({
       requestedItem,
       ...this.menuService.resolveMenuItem(requestedItem.item)
@@ -148,7 +163,7 @@ export class OrderService {
       };
     }
 
-    const order = this.store.createDraftOrder({
+    const order = await this.store.createDraftOrder({
       businessId: context.businessId,
       ...(context.locationId ? { locationId: context.locationId } : {}),
       ...(context.conversationSessionId ? { conversationSessionId: context.conversationSessionId } : {}),
@@ -161,8 +176,8 @@ export class OrderService {
       ),
       ...(context.specialInstructions ? { specialInstructions: context.specialInstructions } : {})
     });
-    const missingInformation = this.store.identifyMissingOrderInformation(order.id);
-    const quote = this.store.quoteOrder(order.id);
+    const missingInformation = await this.store.identifyMissingOrderInformation(order.id);
+    const quote = await this.store.quoteOrder(order.id);
 
     return {
       created: true,
@@ -174,8 +189,11 @@ export class OrderService {
     };
   }
 
-  addItemToOrder(orderId: string, requestedItem: RequestedOrderItem): Record<string, unknown> {
-    const order = this.store.getOrder(orderId);
+  async addItemToOrder(
+    orderId: string,
+    requestedItem: RequestedOrderItem
+  ): Promise<Record<string, unknown>> {
+    const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
     const resolved = this.menuService.resolveMenuItem(requestedItem.item);
@@ -203,8 +221,8 @@ export class OrderService {
       });
     }
 
-    const updatedOrder = this.store.updateOrderItems(order.id, items);
-    const quote = this.store.quoteOrder(updatedOrder.id);
+    const updatedOrder = await this.store.updateOrderItems(order.id, items);
+    const quote = await this.store.quoteOrder(updatedOrder.id);
     return {
       added: true,
       order: summarizeOrder(updatedOrder),
@@ -214,11 +232,11 @@ export class OrderService {
     };
   }
 
-  updateOrderItem(
+  async updateOrderItem(
     orderId: string,
     update: { item: string; quantity?: number; notes?: string }
-  ): Record<string, unknown> {
-    const order = this.store.getOrder(orderId);
+  ): Promise<Record<string, unknown>> {
+    const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
     const lineMatch = findOrderLineIndex(order, update.item);
@@ -235,8 +253,8 @@ export class OrderService {
       } : {})
     });
 
-    const updatedOrder = this.store.updateOrderItems(order.id, items);
-    const quote = this.store.quoteOrder(updatedOrder.id);
+    const updatedOrder = await this.store.updateOrderItems(order.id, items);
+    const quote = await this.store.quoteOrder(updatedOrder.id);
     return {
       updated: true,
       order: summarizeOrder(updatedOrder),
@@ -246,8 +264,8 @@ export class OrderService {
     };
   }
 
-  removeOrderItem(orderId: string, item: string): Record<string, unknown> {
-    const order = this.store.getOrder(orderId);
+  async removeOrderItem(orderId: string, item: string): Promise<Record<string, unknown>> {
+    const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
     const lineMatch = findOrderLineIndex(order, item);
@@ -258,11 +276,11 @@ export class OrderService {
       };
     }
 
-    const updatedOrder = this.store.updateOrderItems(
+    const updatedOrder = await this.store.updateOrderItems(
       order.id,
       order.items.filter((_line, index) => index !== lineMatch.index)
     );
-    const quote = this.store.quoteOrder(updatedOrder.id);
+    const quote = await this.store.quoteOrder(updatedOrder.id);
     return {
       removed: true,
       order: summarizeOrder(updatedOrder),
@@ -272,12 +290,12 @@ export class OrderService {
     };
   }
 
-  clearOrder(orderId: string): Record<string, unknown> {
-    const order = this.store.getOrder(orderId);
+  async clearOrder(orderId: string): Promise<Record<string, unknown>> {
+    const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
-    const updatedOrder = this.store.clearOrderItems(order.id);
-    const quote = this.store.quoteOrder(updatedOrder.id);
+    const updatedOrder = await this.store.clearOrderItems(order.id);
+    const quote = await this.store.quoteOrder(updatedOrder.id);
     return {
       cleared: true,
       order: summarizeOrder(updatedOrder),
@@ -287,10 +305,10 @@ export class OrderService {
     };
   }
 
-  summarizeOrder(orderId: string): Record<string, unknown> {
-    const order = this.store.getOrder(orderId);
+  async summarizeOrder(orderId: string): Promise<Record<string, unknown>> {
+    const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
-    const missingInformation = this.store.identifyMissingOrderInformation(order.id);
+    const missingInformation = await this.store.identifyMissingOrderInformation(order.id);
 
     return {
       found: true,
@@ -302,11 +320,11 @@ export class OrderService {
     };
   }
 
-  quoteOrderTotal(orderId: string): Record<string, unknown> {
-    const order = this.store.getOrder(orderId);
+  async quoteOrderTotal(orderId: string): Promise<Record<string, unknown>> {
+    const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
-    const quote = this.store.quoteOrder(order.id);
+    const quote = await this.store.quoteOrder(order.id);
     const unpricedItems = order.items.filter((item) => item.lineTotal === undefined);
     return {
       found: true,

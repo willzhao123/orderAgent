@@ -13,7 +13,10 @@ export type SkillRegistryEntry = {
   parameters: Record<string, unknown>;
   usageInstruction: string;
   shouldUse: (message: string) => boolean;
-  execute: (context: SkillContext, input: Record<string, unknown>) => Record<string, unknown>;
+  execute: (
+    context: SkillContext,
+    input: Record<string, unknown>
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 };
 
 function validateCheckMenuItemInput(input: Record<string, unknown>): string {
@@ -120,7 +123,10 @@ function validateAddItemToOrderInput(input: Record<string, unknown>): {
   return { orderId, requestedItem: requestedItem! };
 }
 
-function addItemToOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function addItemToOrder(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const { orderId, requestedItem } = validateAddItemToOrderInput(input);
   return context.orderService.addItemToOrder(orderId, requestedItem);
 }
@@ -163,7 +169,10 @@ function validateUpdateOrderItemInput(input: Record<string, unknown>): {
   };
 }
 
-function updateOrderItem(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function updateOrderItem(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const update = validateUpdateOrderItemInput(input);
   return context.orderService.updateOrderItem(update.orderId, update);
 }
@@ -180,27 +189,42 @@ function validateOrderItemInput(input: Record<string, unknown>, skillName: strin
   return { orderId, item: input.item.trim() };
 }
 
-function removeOrderItem(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function removeOrderItem(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const { orderId, item } = validateOrderItemInput(input, "remove_order_item");
   return context.orderService.removeOrderItem(orderId, item);
 }
 
-function clearOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function clearOrder(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const orderId = validateOrderId(input, "clear_order");
   return context.orderService.clearOrder(orderId);
 }
 
-function summarizeOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function summarizeOrder(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const orderId = validateOrderId(input, "summarize_order");
   return context.orderService.summarizeOrder(orderId);
 }
 
-function quoteOrderTotal(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function quoteOrderTotal(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const orderId = validateOrderId(input, "quote_order_total");
   return context.orderService.quoteOrderTotal(orderId);
 }
 
-function createOrder(context: SkillContext, input: Record<string, unknown>): Record<string, unknown> {
+function createOrder(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const requestedItems = validateCreateOrderInput(input);
   return context.orderService.createOrder(requestedItems, context.orderContext);
 }

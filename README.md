@@ -6,7 +6,11 @@ This experiment tests a small backend skill loop:
 2. It loads the approved menu from `data/menu.json`.
 3. It tells you which skills it has.
 4. During chat, it discovers and calls the right skill.
-5. When an order is created, it stores it in `data/orders.json`.
+5. It stores chat sessions, Gemini history, draft orders, and order items in
+   local Postgres.
+
+The approved menu remains in `data/menu.json`; menu data is not stored in
+Postgres.
 
 The Codex skills are:
 
@@ -38,9 +42,17 @@ Put your API key in `.env`:
 ```text
 GEMINI_API_KEY=your_real_key
 GEMINI_MODEL=gemini-3.6-flash
+DATABASE_URL=postgresql://localhost:5432/order_agent
 ```
 
-Then:
+Create the local database if needed, then apply the schema:
+
+```bash
+createdb order_agent
+psql "$DATABASE_URL" -f db/schema.sql
+```
+
+Then run:
 
 ```bash
 npm test
@@ -62,8 +74,8 @@ What food do you have?
 Do you have beef pho?
 Do you have Singapore noodles?
 I want 2 egg rolls and one chicken pho.
-Add 2 spring rolls to order_0001.
-What is the total for order_0001?
+Add 2 spring rolls to order <the UUID returned by create_order>.
+What is the total for order <the UUID returned by create_order>?
 ```
 
 When the model selects a skill, the terminal prints:
@@ -78,10 +90,12 @@ The implementation uses Gemini function calling:
 user message
   -> backend loads .agents/skills/*/SKILL.md
   -> backend loads data/menu.json
+  -> backend reconstructs this session's Gemini history from Postgres
   -> model sees the skills as function tools
   -> model calls a trusted skill such as check_menu_item or create_order
-  -> local handler returns the menu result or stored order
+  -> local handler returns the menu result or Postgres-backed draft order
   -> model gives the final reply
+  -> user, model, and tool messages are appended to Postgres
 ```
 
 Official reference:
