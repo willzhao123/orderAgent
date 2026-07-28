@@ -136,7 +136,8 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
     ]
   });
 
-  assert.match(agent.describeSkills(), /11 skills/);
+  assert.match(agent.describeSkills(), /12 skills/);
+  assert.match(agent.describeSkills(), /answer_restaurant_faq/);
   assert.match(agent.describeSkills(), /check_menu_item/);
   assert.match(agent.describeSkills(), /list_food/);
   assert.match(agent.describeSkills(), /list_category_items/);
@@ -180,6 +181,50 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
       price: 15
     }
   });
+});
+
+test("executes answer_restaurant_faq using the static FAQ store", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("answer_restaurant_faq", {
+        question: "What kind of cuisine do you serve?"
+      }),
+      textResponse("We serve Vietnamese cuisine.")
+    ]
+  });
+
+  const discovered: string[] = [];
+  const reply = await agent.chat("What kind of cuisine do you serve?", (name) => {
+    discovered.push(name);
+  });
+
+  assert.deepEqual(discovered, ["answer_restaurant_faq"]);
+  assert.equal(reply, "We serve Vietnamese cuisine.");
+  assert.deepEqual(lastFunctionResponse(requestBodies).response, {
+    found: true,
+    ambiguous: false,
+    faq: {
+      id: "cuisine",
+      category: "General",
+      question: "What kind of cuisine do you serve?",
+      answer: "Haiyen Restaurant serves Vietnamese cuisine."
+    }
+  });
+});
+
+test("rejects malformed answer_restaurant_faq arguments", async () => {
+  const agent = await createAgent({
+    responses: [
+      toolCallResponse("answer_restaurant_faq", { question: "   " })
+    ]
+  });
+
+  await assert.rejects(
+    () => agent.chat("What are your restaurant hours?"),
+    /answer_restaurant_faq requires a non-empty string question/
+  );
 });
 
 test("executes create_order and persists approved menu items", async () => {

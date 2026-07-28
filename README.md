@@ -3,7 +3,8 @@
 This experiment tests a small backend skill loop:
 
 1. The backend agent loads Codex-style skills from `.agents/skills`.
-2. It loads the approved menu from `data/menu.json`.
+2. It loads the approved menu from `data/menu.json` and restaurant FAQs from
+   `data/restaurant-faq.json`.
 3. It tells you which skills it has.
 4. During chat, it discovers and calls the right skill.
 5. It stores chat sessions, Gemini history, draft orders, and order items in
@@ -12,9 +13,14 @@ This experiment tests a small backend skill loop:
 The approved menu remains in `data/menu.json`; menu data is not stored in
 Postgres.
 
+Restaurant FAQ answers remain in `data/restaurant-faq.json`; FAQ data is not
+stored in Postgres. Add entries with an `id`, `question`, `answer`, and optional
+`category`, `aliases`, and `keywords`.
+
 The Codex skills are:
 
 - `check-menu-item`
+- `answer-restaurant-faq`
 - `list-food`
 - `list-category-items`
 - `get-item-details`
@@ -27,7 +33,7 @@ The Codex skills are:
 - `quote-order-total`
 
 The backend exposes them to Gemini as function tools such as `check_menu_item`,
-`list_food`, `create_order`, and `quote_order_total`.
+`answer_restaurant_faq`, `list_food`, `create_order`, and `quote_order_total`.
 
 ## Run
 
@@ -70,6 +76,7 @@ Try these messages:
 
 ```text
 What skills can you do?
+What kind of cuisine do you serve?
 What food do you have?
 Do you have beef pho?
 Do you have Singapore noodles?
@@ -90,10 +97,11 @@ The implementation uses Gemini function calling:
 user message
   -> backend loads .agents/skills/*/SKILL.md
   -> backend loads data/menu.json
+  -> backend loads data/restaurant-faq.json
   -> backend reconstructs this session's Gemini history from Postgres
   -> model sees the skills as function tools
-  -> model calls a trusted skill such as check_menu_item or create_order
-  -> local handler returns the menu result or Postgres-backed draft order
+  -> model calls a trusted skill such as answer_restaurant_faq, check_menu_item, or create_order
+  -> local handler returns the FAQ/menu result or Postgres-backed draft order
   -> model gives the final reply
   -> user, model, and tool messages are appended to Postgres
 ```

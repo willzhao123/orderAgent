@@ -1,0 +1,4 @@
+interface:
+  display_name: "Answer Restaurant FAQ"
+  short_description: "Answer restaurant policy and logistics questions"
+  default_prompt: "Use $answer-restaurant-faq to answer my question about the restaurant."

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { BackendDataStore } from "./backendDataStore.ts";
 import { GeminiClient } from "./geminiClient.ts";
 import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
@@ -5,6 +6,8 @@ import { loadMenu } from "./menu.ts";
 import { MenuService } from "./menuService.ts";
 import { OrderService, type OrderStore } from "./orderService.ts";
 import { ReceptionistBackend } from "./receptionistBackend.ts";
+import { loadRestaurantFaq } from "./restaurantFaq.ts";
+import { RestaurantFaqService } from "./restaurantFaqService.ts";
 import { MemorySessionStore, type SessionStore } from "./sessionStore.ts";
 import { SkillExecutor } from "./skillExecutor.ts";
 import { loadSkills, type SkillDefinition } from "./skills.ts";
@@ -45,6 +48,7 @@ export class BackendAgent {
     model: string;
     skillsPath: string;
     menuPath: string;
+    faqPath?: string;
     backendStatePath?: string;
     businessId?: string;
     locationId?: string;
@@ -54,7 +58,11 @@ export class BackendAgent {
   }): Promise<BackendAgent> {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
+    const faq = await loadRestaurantFaq(
+      options.faqPath ?? fileURLToPath(new URL("../data/restaurant-faq.json", import.meta.url))
+    );
     const menuService = new MenuService(menu);
+    const restaurantFaqService = new RestaurantFaqService(faq);
     const backendStatePath = options.backendStatePath ?? "data/backend-state.json";
     const backendDataStore = new BackendDataStore(backendStatePath);
     const receptionistBackend = options.backendStatePath
@@ -70,7 +78,7 @@ export class BackendAgent {
       options.apiKey,
       options.model,
       skills,
-      new SkillExecutor(menuService, orderService, {
+      new SkillExecutor(menuService, orderService, restaurantFaqService, {
         businessId,
         ...(options.locationId ? { locationId: options.locationId } : {})
       }),

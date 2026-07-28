@@ -1,9 +1,11 @@
 import type { MenuService } from "./menuService.ts";
 import type { OrderService, OrderServiceContext, RequestedOrderItem } from "./orderService.ts";
+import type { RestaurantFaqService } from "./restaurantFaqService.ts";
 
 type SkillContext = {
   menuService: MenuService;
   orderService: OrderService;
+  restaurantFaqService: RestaurantFaqService;
   orderContext: OrderServiceContext;
 };
 
@@ -234,12 +236,50 @@ function getItemDetails(context: SkillContext, input: Record<string, unknown>): 
   return context.menuService.getItemDetails(itemQuery);
 }
 
+function answerRestaurantFaq(
+  context: SkillContext,
+  input: Record<string, unknown>
+): Record<string, unknown> {
+  if (typeof input.question !== "string" || !input.question.trim()) {
+    throw new Error("answer_restaurant_faq requires a non-empty string question.");
+  }
+
+  return context.restaurantFaqService.answerQuestion(input.question.trim());
+}
+
 function menuIntent(message: string): boolean {
   return /\b(menu|food|dish|dishes|item|items|serve|serves|have|available|order|pho|salad|rice|noodle|soup|rolls?)\b/i
     .test(message);
 }
 
 export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
+  answer_restaurant_faq: {
+    name: "answer_restaurant_faq",
+    codexName: "answer-restaurant-faq",
+    parameters: {
+      type: "object",
+      properties: {
+        question: {
+          type: "string",
+          description: "The customer's complete question about the restaurant."
+        }
+      },
+      required: ["question"],
+      additionalProperties: false
+    },
+    usageInstruction: "Use answer_restaurant_faq for questions about restaurant facts, cuisine, hours, location, reservations, parking, service options, accessibility, or policies. Use menu skills for food items and prices.",
+    shouldUse: (message) => {
+      const faqIntent = /\b(faq|restaurant|cuisine|hours?|open|close[ds]?|location|located|address|parking|reservations?|catering|delivery|pickup|accessib(?:le|ility)|policy|policies|payment|credit cards?|wifi|dress code)\b/i
+        .test(message);
+      const explicitMenuQuestion = /\b(menu item|food item|order total)\b/i.test(message) ||
+        (
+          /\b(price|cost|how much)\b/i.test(message) &&
+          /\b(menu|dish|item|pho|salad|rice|noodle|soup|rolls?)\b/i.test(message)
+        );
+      return faqIntent && !explicitMenuQuestion;
+    },
+    execute: answerRestaurantFaq
+  },
   check_menu_item: {
     name: "check_menu_item",
     codexName: "check-menu-item",

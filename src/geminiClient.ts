@@ -59,7 +59,7 @@ export class GeminiClient {
     return [
       "You are a minimal backend agent. Tell the user about your registered skills when asked.",
       ...skillUsageInstructions(),
-      "Never invent skills or menu results.",
+      "Never invent skills, menu results, or restaurant FAQ answers.",
       "Registered skill instructions:",
       ...this.skills.map(
         (skill) => `${skill.name} from ${skill.sourcePath}:\n${skill.instructions}`
