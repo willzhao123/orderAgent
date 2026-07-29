@@ -8,9 +8,11 @@
   },
   "scripts": {
     "chat": "node --env-file-if-exists=.env --experimental-strip-types src/chat.ts",
+    "start": "node --env-file-if-exists=.env --experimental-strip-types src/server.ts",
     "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
+    "fastify": "^5.10.0",
     "pg": "^8.22.0",
     "yaml": "^2.9.0"
   },

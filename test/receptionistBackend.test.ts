@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { BackendDataStore } from "../src/backendDataStore.ts";
-import { loadMenu } from "../src/menu.ts";
-import { MenuService } from "../src/menuService.ts";
-import { ReceptionistBackend } from "../src/receptionistBackend.ts";
+import { ReceptionistBackend } from "../src/agent/receptionistBackend.ts";
+import { loadMenu } from "../src/catalog/menu.ts";
+import { MenuService } from "../src/catalog/menuService.ts";
+import { BackendDataStore } from "../src/persistence/backendDataStore.ts";
 
 const defaultMenuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
 

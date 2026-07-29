@@ -9,7 +9,7 @@ import type {
   OrderItem,
   OrderQuote,
   ToolCall
-} from "./domain.ts";
+} from "../domain/models.ts";
 import {
   AgentPolicyRepository,
   BusinessEventRepository,

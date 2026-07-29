@@ -1,10 +1,10 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
-import { BackendAgent } from "./backendAgent.ts";
-import { db } from "./db.ts";
-import { PostgresOrderStore } from "./postgresOrderStore.ts";
-import { PostgresSessionStore } from "./sessionStore.ts";
+import { BackendAgent } from "./agent/backendAgent.ts";
+import { PostgresOrderStore } from "./orders/postgresOrderStore.ts";
+import { db } from "./persistence/db.ts";
+import { PostgresSessionStore } from "./persistence/sessionStore.ts";
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey || apiKey === "replace_with_your_key") {

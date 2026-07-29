@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseRestaurantFaq } from "../src/restaurantFaq.ts";
-import { RestaurantFaqService } from "../src/restaurantFaqService.ts";
+import { parseRestaurantFaq } from "../src/catalog/restaurantFaq.ts";
+import { RestaurantFaqService } from "../src/catalog/restaurantFaqService.ts";
 
 const FAQ_SOURCE = JSON.stringify({
   faqs: [

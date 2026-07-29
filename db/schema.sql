@@ -1,10 +1,17 @@
 CREATE TABLE IF NOT EXISTS chat_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_session_id text,
+  provider_call_id text,
   status text NOT NULL DEFAULT 'active',
   customer_phone text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE chat_sessions
+  ADD COLUMN IF NOT EXISTS external_session_id text;
+ALTER TABLE chat_sessions
+  ADD COLUMN IF NOT EXISTS provider_call_id text;
 
 CREATE TABLE IF NOT EXISTS chat_messages (
   id bigserial PRIMARY KEY,
@@ -40,6 +47,8 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 CREATE INDEX IF NOT EXISTS chat_messages_session_id_id_idx
   ON chat_messages (session_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_sessions_external_session_id_uidx
+  ON chat_sessions (external_session_id);
 CREATE INDEX IF NOT EXISTS orders_session_id_idx
   ON orders (session_id);
 CREATE INDEX IF NOT EXISTS order_items_order_id_idx

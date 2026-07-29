@@ -1,7 +1,7 @@
-import { BackendDataStore } from "./backendDataStore.ts";
-import type { ConversationSession, FulfillmentType, OrderItem } from "./domain.ts";
-import type { MenuItem } from "./menu.ts";
-import { MenuService } from "./menuService.ts";
+import type { MenuItem } from "../catalog/menu.ts";
+import { MenuService } from "../catalog/menuService.ts";
+import type { ConversationSession, FulfillmentType, OrderItem } from "../domain/models.ts";
+import { BackendDataStore } from "../persistence/backendDataStore.ts";
 
 type DraftOrderItemInput = {
   item: string;

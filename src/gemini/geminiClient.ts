@@ -1,7 +1,7 @@
 import type { ApiResponse, FetchLike, GeminiContent } from "./geminiTypes.ts";
 import { customerLanguageInstructions } from "./responsePolicy.ts";
-import { skillUsageInstructions } from "./skillRegistry.ts";
-import type { SkillDefinition } from "./skills.ts";
+import { skillUsageInstructions } from "../skills/skillRegistry.ts";
+import type { SkillDefinition } from "../skills/skillLoader.ts";
 
 export class GeminiClient {
   private readonly apiKey: string;

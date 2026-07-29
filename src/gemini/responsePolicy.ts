@@ -1,3 +1,4 @@
+/** Customer-facing language rules included in the Gemini system prompt. */
 export function customerLanguageInstructions(): string[] {
   return [
     "Match the language of the customer's latest substantive message. For a short or ambiguous reply, continue in the language already established in the conversation. Default to English only when no language preference can be inferred, and switch languages when the customer asks.",

@@ -1,5 +1,6 @@
 import type { RestaurantFaq, RestaurantFaqEntry } from "./restaurantFaq.ts";
 
+/** Common words that should not influence FAQ matching. */
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "at", "can", "do", "does", "for", "how", "i", "in",
   "is", "it", "me", "of", "on", "restaurant", "the", "to", "what", "when", "where",

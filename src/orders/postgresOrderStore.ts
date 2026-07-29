@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
-import type { Order, OrderItem, OrderQuote, OrderStatus } from "./domain.ts";
+import type { Order, OrderItem, OrderQuote, OrderStatus } from "../domain/models.ts";
+import type { CreateDraftOrderInput } from "../persistence/repositories.ts";
 import type { OrderStore } from "./orderService.ts";
-import type { CreateDraftOrderInput } from "./repositories.ts";
 
 type Queryable = Pool | PoolClient;
 

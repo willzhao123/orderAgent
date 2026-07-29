@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { GeminiContent } from "./geminiTypes.ts";
+import type { GeminiContent } from "../gemini/geminiTypes.ts";
 
 export type StoredMessageRole = "user" | "model" | "tool";
 
@@ -26,6 +26,25 @@ export class PostgresSessionStore implements SessionStore {
        VALUES ($1)
        RETURNING id`,
       [customerPhone ?? null]
+    );
+    return result.rows[0]!.id;
+  }
+
+  async getOrCreateExternalSession(
+    externalSessionId: string,
+    providerCallId?: string
+  ): Promise<string> {
+    const result = await this.pool.query<{ id: string }>(
+      `INSERT INTO chat_sessions (external_session_id, provider_call_id)
+       VALUES ($1, $2)
+       ON CONFLICT (external_session_id) DO UPDATE
+       SET provider_call_id = COALESCE(
+             EXCLUDED.provider_call_id,
+             chat_sessions.provider_call_id
+           ),
+           updated_at = now()
+       RETURNING id`,
+      [externalSessionId, providerCallId ?? null]
     );
     return result.rows[0]!.id;
   }

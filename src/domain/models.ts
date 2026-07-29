@@ -1,3 +1,4 @@
+/** Shared domain contracts used across agent, order, and persistence modules. */
 export type ISODateTime = string;
 
 export type FulfillmentType = "pickup" | "delivery" | "dine_in";

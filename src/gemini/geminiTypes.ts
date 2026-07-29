@@ -1,3 +1,4 @@
+/** Function call requested by Gemini during an agent turn. */
 export type FunctionCall = {
   name: string;
   args?: Record<string, unknown>;

@@ -1,6 +1,6 @@
-import type { MenuService } from "./menuService.ts";
-import type { OrderService, OrderServiceContext, RequestedOrderItem } from "./orderService.ts";
-import type { RestaurantFaqService } from "./restaurantFaqService.ts";
+import type { MenuService } from "../catalog/menuService.ts";
+import type { RestaurantFaqService } from "../catalog/restaurantFaqService.ts";
+import type { OrderService, OrderServiceContext, RequestedOrderItem } from "../orders/orderService.ts";
 
 type SkillContext = {
   menuService: MenuService;

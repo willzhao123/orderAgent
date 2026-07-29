@@ -1,5 +1,6 @@
 import type { Menu, MenuCategory, MenuItem } from "./menu.ts";
 
+/** Result of matching customer language to a canonical menu item. */
 export type MenuResolveResult = {
   item?: MenuItem;
   issue?: Record<string, unknown>;

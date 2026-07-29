@@ -34,7 +34,7 @@ import type {
   VoiceAgentConfig,
   WebhookDelivery,
   BusinessRule
-} from "./domain.ts";
+} from "../domain/models.ts";
 
 export type BackendState = {
   businesses: Business[];

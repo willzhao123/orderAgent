@@ -12,6 +12,7 @@ export type SkillDefinition = {
   sourcePath: string;
 };
 
+/** Convert a Codex skill directory name to Gemini's function naming convention. */
 function toFunctionName(skillName: string): string {
   return skillName.replaceAll("-", "_");
 }

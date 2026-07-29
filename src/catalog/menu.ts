@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+/** Menu data normalized from the restaurant's JSON catalog. */
 export type MenuItem = {
   id: string;
   name: string;

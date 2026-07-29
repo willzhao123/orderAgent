@@ -1,6 +1,6 @@
-import type { MenuService } from "./menuService.ts";
-import type { OrderService, OrderServiceContext } from "./orderService.ts";
-import type { RestaurantFaqService } from "./restaurantFaqService.ts";
+import type { MenuService } from "../catalog/menuService.ts";
+import type { RestaurantFaqService } from "../catalog/restaurantFaqService.ts";
+import type { OrderService, OrderServiceContext } from "../orders/orderService.ts";
 import { getSkillRegistryEntry, messageRequiresSkill } from "./skillRegistry.ts";
 
 export class SkillExecutor {

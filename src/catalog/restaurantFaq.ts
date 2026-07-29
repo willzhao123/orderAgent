@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+/** A verified restaurant fact that may be returned to a customer. */
 export type RestaurantFaqEntry = {
   id: string;
   question: string;

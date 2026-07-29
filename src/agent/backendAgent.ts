@@ -1,16 +1,16 @@
 import { fileURLToPath } from "node:url";
-import { BackendDataStore } from "./backendDataStore.ts";
-import { GeminiClient } from "./geminiClient.ts";
-import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "./geminiTypes.ts";
-import { loadMenu } from "./menu.ts";
-import { MenuService } from "./menuService.ts";
-import { OrderService, type OrderStore } from "./orderService.ts";
+import { loadMenu } from "../catalog/menu.ts";
+import { MenuService } from "../catalog/menuService.ts";
+import { loadRestaurantFaq } from "../catalog/restaurantFaq.ts";
+import { RestaurantFaqService } from "../catalog/restaurantFaqService.ts";
+import { GeminiClient } from "../gemini/geminiClient.ts";
+import type { ApiResponse, FetchLike, FunctionCall, GeminiContent } from "../gemini/geminiTypes.ts";
+import { OrderService, type OrderStore } from "../orders/orderService.ts";
+import { BackendDataStore } from "../persistence/backendDataStore.ts";
+import { MemorySessionStore, type SessionStore } from "../persistence/sessionStore.ts";
+import { SkillExecutor } from "../skills/skillExecutor.ts";
+import { loadSkills, type SkillDefinition } from "../skills/skillLoader.ts";
 import { ReceptionistBackend } from "./receptionistBackend.ts";
-import { loadRestaurantFaq } from "./restaurantFaq.ts";
-import { RestaurantFaqService } from "./restaurantFaqService.ts";
-import { MemorySessionStore, type SessionStore } from "./sessionStore.ts";
-import { SkillExecutor } from "./skillExecutor.ts";
-import { loadSkills, type SkillDefinition } from "./skills.ts";
 
 export class BackendAgent {
   private readonly skills: SkillDefinition[];
@@ -59,7 +59,7 @@ export class BackendAgent {
     const skills = await loadSkills(options.skillsPath);
     const menu = await loadMenu(options.menuPath);
     const faq = await loadRestaurantFaq(
-      options.faqPath ?? fileURLToPath(new URL("../data/restaurant-faq.json", import.meta.url))
+      options.faqPath ?? fileURLToPath(new URL("../../data/restaurant-faq.json", import.meta.url))
     );
     const menuService = new MenuService(menu);
     const restaurantFaqService = new RestaurantFaqService(faq);

@@ -35,6 +35,25 @@ The Codex skills are:
 The backend exposes them to Gemini as function tools such as `check_menu_item`,
 `answer_restaurant_faq`, `list_food`, `create_order`, and `quote_order_total`.
 
+## Source layout
+
+The two runnable entry points stay at the top of `src`; implementation code is
+grouped by responsibility:
+
+```text
+src/
+├── chat.ts                 # interactive CLI
+├── server.ts               # HTTP service
+├── agent/                  # conversation orchestration
+├── catalog/                # menu and restaurant FAQ data/services
+├── domain/                 # shared business contracts
+├── gemini/                 # Gemini client, types, and response policy
+├── http/                   # Fastify transport
+├── orders/                 # order application and Postgres storage
+├── persistence/            # database, sessions, and JSON repositories
+└── skills/                 # skill loading, registry, and execution
+```
+
 ## Run
 
 Requires Node.js 22.6 or newer.
@@ -49,6 +68,8 @@ Put your API key in `.env`:
 GEMINI_API_KEY=your_real_key
 GEMINI_MODEL=gemini-3.6-flash
 DATABASE_URL=postgresql://localhost:5432/order_agent
+PORT=3000
+BACKEND_BEARER_TOKEN=replace_with_a_long_random_token
 ```
 
 Create the local database if needed, then apply the schema:
@@ -64,6 +85,60 @@ Then run:
 npm test
 npm run chat
 ```
+
+`npm run chat` preserves the interactive CLI. To run the authenticated HTTP API
+for `voice-agent`, use:
+
+```bash
+npm start
+```
+
+The service binds to `0.0.0.0` on `PORT` (default `3000`). Configure
+`voice-agent` with this service's URL as `BACKEND_AGENT_URL` and send the same
+value as `BACKEND_BEARER_TOKEN` in its bearer authorization header.
+
+## HTTP API
+
+`GET /health` reports that the HTTP process is running. `GET /ready` also checks
+that Postgres accepts a query, returning `503` while that dependency is
+unavailable. These two endpoints do not require authentication.
+
+`POST /v1/chat` requires:
+
+```text
+Authorization: Bearer <BACKEND_BEARER_TOKEN>
+Content-Type: application/json
+```
+
+Example:
+
+```bash
+curl http://localhost:3000/v1/chat \
+  -H "Authorization: Bearer $BACKEND_BEARER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Do you have beef pho?",
+    "sessionId": "voice-session-id",
+    "callSid": "optional Twilio call SID"
+  }'
+```
+
+The response contract consumed by `voice-agent` is unchanged:
+
+```json
+{
+  "response": "Yes, beef pho is available."
+}
+```
+
+Each external `sessionId` is persistently and uniquely mapped to one internal
+Postgres chat session. Reusing it restores the Gemini conversation history and
+draft-order context; different external session IDs remain isolated. `callSid`
+is optional and is stored as the provider call ID when supplied.
+
+The current order workflow creates **draft orders only**. Confirming or
+submitting an order, choosing a fulfillment type, and collecting the customer's
+phone number are separate future work.
 
 If `node` or `npm` is not installed in your normal shell, the Codex workspace
 runtime can start the chat directly:

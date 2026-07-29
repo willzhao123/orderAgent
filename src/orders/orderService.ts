@@ -1,8 +1,8 @@
-import { BackendDataStore } from "./backendDataStore.ts";
-import type { FulfillmentType, Order, OrderItem, OrderQuote } from "./domain.ts";
-import type { MenuItem } from "./menu.ts";
-import { MenuService } from "./menuService.ts";
-import type { CreateDraftOrderInput } from "./repositories.ts";
+import type { MenuItem } from "../catalog/menu.ts";
+import { MenuService } from "../catalog/menuService.ts";
+import type { FulfillmentType, Order, OrderItem, OrderQuote } from "../domain/models.ts";
+import { BackendDataStore } from "../persistence/backendDataStore.ts";
+import type { CreateDraftOrderInput } from "../persistence/repositories.ts";
 
 type MaybePromise<T> = T | Promise<T>;
 

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { BackendAgent } from "../src/backendAgent.ts";
-import { BackendDataStore } from "../src/backendDataStore.ts";
+import { BackendAgent } from "../src/agent/backendAgent.ts";
+import { BackendDataStore } from "../src/persistence/backendDataStore.ts";
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const defaultMenuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));

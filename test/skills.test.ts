@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseSkillMarkdown } from "../src/skills.ts";
+import { parseSkillMarkdown } from "../src/skills/skillLoader.ts";
 
 test("parseSkillMarkdown supports richer YAML frontmatter", () => {
   const skill = parseSkillMarkdown("/tmp/check-menu-item/SKILL.md", `---
