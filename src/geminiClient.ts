@@ -1,4 +1,5 @@
 import type { ApiResponse, FetchLike, GeminiContent } from "./geminiTypes.ts";
+import { customerLanguageInstructions } from "./responsePolicy.ts";
 import { skillUsageInstructions } from "./skillRegistry.ts";
 import type { SkillDefinition } from "./skills.ts";
 
@@ -59,6 +60,7 @@ export class GeminiClient {
     return [
       "You are a helpful restaurant phone attendant. Tell the user about your registered skills when asked.",
       "Speak naturally, as if you were helping one customer on a call. Default to one or two short sentences and ask at most one relevant question. Do not use headings or lists unless the customer explicitly asks for a complete list or an order summary. Do not mention tools, handlers, stored data, or an approved menu; present verified results directly. Never include order ids, line-item ids, or menu item ids in a customer-facing reply, even when a skill returns them.",
+      ...customerLanguageInstructions(),
       ...skillUsageInstructions(),
       "Never invent skills, menu results, or restaurant FAQ answers.",
       "Registered skill instructions:",

@@ -249,7 +249,8 @@ function answerRestaurantFaq(
 
 function menuIntent(message: string): boolean {
   return /\b(menu|food|dish|dishes|item|items|serve|serves|have|available|order|pho|salad|rice|noodle|soup|rolls?)\b/i
-    .test(message);
+    .test(message) ||
+    /(thực đơn|món ăn|món|phở|cơm|bún|gỏi|chả giò|mì|canh|súp|đơn)/iu.test(message);
 }
 
 export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
@@ -295,8 +296,10 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use check_menu_item whenever the user asks whether a menu item exists.",
-    shouldUse: (message) => /\b(have|serve|serves|offer|offers|available|do you have|is there)\b/i
-      .test(message) && menuIntent(message),
+    shouldUse: (message) => (
+      /\b(have|serve|serves|offer|offers|available|do you have|is there)\b/i.test(message) ||
+      /(có|bán|phục vụ).*(không|chứ|à|\?)/iu.test(message)
+    ) && menuIntent(message),
     execute: checkMenuItem
   },
   list_food: {
@@ -309,8 +312,10 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use list_food whenever the user asks what food or menu items are available.",
-    shouldUse: (message) => /\b(menu|what food|what dishes|what items|available|options)\b/i
-      .test(message),
+    shouldUse: (message) => (
+      /\b(menu|what food|what dishes|what items|available|options)\b/i.test(message) ||
+      /(thực đơn|có (những |các )?món gì|có gì ăn)/iu.test(message)
+    ),
     execute: listFood
   },
   list_category_items: {
@@ -328,9 +333,14 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use list_category_items after the customer chooses a category, or when they ask what items are in a specific category.",
-    shouldUse: (message) => /\b(category|categories|salads?|pho|appetizers?|soups?|rice plates?|vermicelli|self wrapped|noodle)\b/i
-      .test(message) && /\b(what|which|list|items?|options|in|under|show|tell me)\b/i
-      .test(message),
+    shouldUse: (message) => (
+      /\b(category|categories|salads?|pho|appetizers?|soups?|rice plates?|vermicelli|self wrapped|noodle)\b/i
+        .test(message) &&
+      /\b(what|which|list|items?|options|in|under|show|tell me)\b/i.test(message)
+    ) || (
+      /(phở|cơm|bún|gỏi|món khai vị|mì|canh|súp)/iu.test(message) &&
+      /(có gì|món nào|loại nào|liệt kê|cho (tôi|mình) xem|kể)/iu.test(message)
+    ),
     execute: listCategoryItems
   },
   get_item_details: {
@@ -348,8 +358,11 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use get_item_details when the user asks for an item's price, description, serving size, ingredients, Vietnamese name, category, or modifiers.",
-    shouldUse: (message) => /\b(price|cost|how much|description|describe|ingredients?|what is in|serving|pieces|vietnamese|modifiers?|comes with|details?)\b/i
-      .test(message) && menuIntent(message),
+    shouldUse: (message) => (
+      /\b(price|cost|how much|description|describe|ingredients?|what is in|serving|pieces|vietnamese|modifiers?|comes with|details?)\b/i
+        .test(message) ||
+      /(giá|bao nhiêu|nguyên liệu|gồm|có gì trong|mô tả|chi tiết|tiếng việt)/iu.test(message)
+    ) && menuIntent(message),
     execute: getItemDetails
   },
   create_order: {
@@ -386,8 +399,11 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use create_order when the customer asks to place, create, start, or submit an order with menu items.",
-    shouldUse: (message) => /\b(order|place|create|start|submit|buy|get|want|would like|i'll have|add)\b/i
-      .test(message) && menuIntent(message),
+    shouldUse: (message) => (
+      /\b(order|place|create|start|submit|buy|get|want|would like|i'll have|add)\b/i
+        .test(message) ||
+      /(tôi muốn|mình muốn|cho (tôi|mình)|đặt|gọi món)/iu.test(message)
+    ) && menuIntent(message),
     execute: createOrder
   },
   add_item_to_order: {
@@ -417,8 +433,10 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use add_item_to_order when the customer asks to add another approved menu item to an existing stored order.",
-    shouldUse: (message) => /\b(add|also|another|include|put)\b/i
-      .test(message) && menuIntent(message),
+    shouldUse: (message) => (
+      /\b(add|also|another|include|put)\b/i.test(message) ||
+      /(thêm|cho thêm|lấy thêm)/iu.test(message)
+    ) && menuIntent(message),
     execute: addItemToOrder
   },
   update_order_item: {
@@ -448,8 +466,10 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use update_order_item when the customer asks to change the quantity or notes for one item already in an existing order.",
-    shouldUse: (message) => /\b(update|change|make it|instead|quantity|note|notes|no|extra)\b/i
-      .test(message) && menuIntent(message),
+    shouldUse: (message) => (
+      /\b(update|change|make it|instead|quantity|note|notes|no|extra)\b/i.test(message) ||
+      /(đổi|thay|sửa|thành|ghi chú|không cho|thêm)/iu.test(message)
+    ) && menuIntent(message),
     execute: updateOrderItem
   },
   remove_order_item: {
@@ -471,8 +491,10 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use remove_order_item when the customer asks to remove one item from an existing stored order.",
-    shouldUse: (message) => /\b(remove|delete|take off|drop|without|cancel item)\b/i
-      .test(message) && menuIntent(message),
+    shouldUse: (message) => (
+      /\b(remove|delete|take off|drop|without|cancel item)\b/i.test(message) ||
+      /(bỏ|xóa|không lấy)/iu.test(message)
+    ) && menuIntent(message),
     execute: removeOrderItem
   },
   clear_order: {
@@ -490,8 +512,13 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use clear_order when the customer asks to remove every item from an existing order.",
-    shouldUse: (message) => /\b(clear|empty|remove everything|start over|cancel order)\b/i
-      .test(message) && /\border\b/i.test(message),
+    shouldUse: (message) => (
+      /\b(clear|empty|remove everything|start over|cancel order)\b/i.test(message) &&
+      /\border\b/i.test(message)
+    ) || (
+      /(xóa hết|bỏ hết|làm lại|hủy)/iu.test(message) &&
+      /đơn/iu.test(message)
+    ),
     execute: clearOrder
   },
   summarize_order: {
@@ -509,8 +536,13 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use summarize_order when the customer asks what is currently in an existing stored order.",
-    shouldUse: (message) => /\b(summary|summarize|what's in|what is in|show|review|recap)\b/i
-      .test(message) && /\border\b/i.test(message),
+    shouldUse: (message) => (
+      /\b(summary|summarize|what's in|what is in|show|review|recap)\b/i.test(message) &&
+      /\border\b/i.test(message)
+    ) || (
+      /(có gì|xem lại|đọc lại|tóm tắt)/iu.test(message) &&
+      /đơn/iu.test(message)
+    ),
     execute: summarizeOrder
   },
   quote_order_total: {
@@ -528,8 +560,13 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       additionalProperties: false
     },
     usageInstruction: "Use quote_order_total when the customer asks for the current subtotal or total for an existing stored order.",
-    shouldUse: (message) => /\b(total|subtotal|quote|how much|cost|amount)\b/i
-      .test(message) && /\border\b/i.test(message),
+    shouldUse: (message) => (
+      /\b(total|subtotal|quote|how much|cost|amount)\b/i.test(message) &&
+      /\border\b/i.test(message)
+    ) || (
+      /(tổng|tạm tính|bao nhiêu tiền|giá)/iu.test(message) &&
+      /đơn/iu.test(message)
+    ),
     execute: quoteOrderTotal
   }
 };

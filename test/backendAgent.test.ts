@@ -167,6 +167,9 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
   assert.match(systemPrompt, /helpful restaurant phone attendant/);
   assert.match(systemPrompt, /Default to one or two short sentences/);
   assert.match(systemPrompt, /Never include order ids, line-item ids, or menu item ids/);
+  assert.match(systemPrompt, /Match the language of the customer's latest substantive message/);
+  assert.match(systemPrompt, /do not replace pho with the generic phrase beef noodle soup/);
+  assert.match(systemPrompt, /Do not recite English and Vietnamese names together/);
   assert.match(systemPrompt, /list_food[\s\S]*mention no more than five broad category names/);
   assert.match(systemPrompt, /list_category_items[\s\S]*mention up to four item names/);
   assert.match(systemPrompt, /get_item_details[\s\S]*answer only what the customer asked about/i);
@@ -813,6 +816,81 @@ test("executes get_item_details with a Vietnamese alias", async () => {
   assert.equal(item.id, "appetizers-egg-rolls");
   assert.equal(item.name, "Egg Rolls");
   assert.equal(item.vietnamese_name, "Cha Gio");
+});
+
+test("matches accented Vietnamese menu names", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("get_item_details", { item: "Phở Gà" }),
+      textResponse("Phở Gà giá 13 đô.")
+    ]
+  });
+
+  const reply = await agent.chat("Phở Gà giá bao nhiêu?");
+
+  assert.equal(reply, "Phở Gà giá 13 đô.");
+  assert.equal(lastFunctionResponse(requestBodies).response.found, true);
+  assert.equal(
+    (lastFunctionResponse(requestBodies).response.item as Record<string, unknown>).vietnamese_name,
+    "Pho Ga"
+  );
+});
+
+test("requires a trusted skill for Vietnamese menu questions", async () => {
+  const agent = await createAgent({
+    responses: [textResponse("Có, nhà hàng có phở gà.")]
+  });
+
+  await assert.rejects(
+    () => agent.chat("Nhà hàng có phở gà không?"),
+    /model answered without calling a required skill/i
+  );
+});
+
+test("resolves an accented Vietnamese dish term to its menu category", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    requestBodies,
+    responses: [
+      toolCallResponse("list_category_items", { category: "phở" }),
+      textResponse("Bên em có Phở Đặc Biệt, Phở Tái, Phở Tái Nạm và Phở Gà. Anh chị muốn nghe thêm món nào?")
+    ]
+  });
+
+  await agent.chat("Các món phở có gì?");
+
+  const category = lastFunctionResponse(requestBodies).response.category as Record<string, unknown>;
+  assert.equal(category.id, "beef-noodle-soup");
+});
+
+test("resolves a Vietnamese alias when changing an existing order", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-orders-"));
+  const backendStatePath = join(tempDir, "backend-state.json");
+  seedBackendOrder(backendStatePath);
+
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    backendStatePath,
+    requestBodies,
+    responses: [
+      toolCallResponse("remove_order_item", {
+        order_id: "order_0001",
+        item: "Phở Gà"
+      }),
+      textResponse("Đã bỏ Phở Gà khỏi đơn.")
+    ]
+  });
+
+  await agent.chat("Bỏ Phở Gà ra.");
+
+  const response = lastFunctionResponse(requestBodies).response;
+  assert.equal(response.removed, true);
+  assert.deepEqual(
+    (response.order as { items: Array<{ name: string }> }).items.map((item) => item.name),
+    ["Egg Rolls"]
+  );
 });
 
 test("returns ambiguity from get_item_details for duplicate item names", async () => {

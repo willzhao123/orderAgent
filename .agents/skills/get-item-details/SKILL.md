@@ -11,4 +11,4 @@ Inputs:
 
 - `item`: The item id, English name, Vietnamese name, or alias the customer asked about.
 
-If one item is found, answer only what the customer asked about. Omit unrelated fields, item ids, and raw field names. If the item is ambiguous or not found, mention only the most relevant returned candidates and ask one short follow-up.
+If one item is found, answer only what the customer asked about and choose its name using the conversation language rules. Omit unrelated fields, alternate-language names, item ids, and raw field names unless the customer specifically asks for an alternate name. If the item is ambiguous or not found, mention only the most relevant returned candidates and ask one short follow-up.

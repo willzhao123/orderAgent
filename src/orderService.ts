@@ -99,7 +99,7 @@ function summarizeOrder(order: Order): Record<string, unknown> {
   };
 }
 
-function findOrderLineIndex(order: Order, itemQuery: string): {
+function findOrderLineIndex(order: Order, itemQuery: string, resolvedMenuItemId?: string): {
   index?: number;
   response?: Record<string, unknown>;
 } {
@@ -108,6 +108,7 @@ function findOrderLineIndex(order: Order, itemQuery: string): {
     .map((item, index) => ({ item, index }))
     .filter(({ item }) =>
       item.menuItemId === normalizedQuery ||
+      item.menuItemId === resolvedMenuItemId ||
       normalize(item.name) === normalizedQuery
     );
 
@@ -239,7 +240,8 @@ export class OrderService {
     const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
-    const lineMatch = findOrderLineIndex(order, update.item);
+    const resolvedMenuItemId = this.menuService.resolveMenuItem(update.item).item?.id;
+    const lineMatch = findOrderLineIndex(order, update.item, resolvedMenuItemId);
     if (lineMatch.index === undefined) return lineMatch.response!;
 
     const items = [...order.items];
@@ -268,7 +270,8 @@ export class OrderService {
     const order = await this.store.getOrder(orderId);
     if (!order) return this.missingOrder(orderId);
 
-    const lineMatch = findOrderLineIndex(order, item);
+    const resolvedMenuItemId = this.menuService.resolveMenuItem(item).item?.id;
+    const lineMatch = findOrderLineIndex(order, item, resolvedMenuItemId);
     if (lineMatch.index === undefined) {
       return {
         ...lineMatch.response!,

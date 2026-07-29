@@ -6,7 +6,14 @@ export type MenuResolveResult = {
 };
 
 function normalize(value: string): string {
-  return value.toLowerCase().trim().replace(/\s+/g, " ");
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replaceAll("đ", "d")
+    .replaceAll("Đ", "D")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function tokens(value: string): string[] {
@@ -312,6 +319,9 @@ export class MenuService {
     const normalizedQuery = normalize(query);
     return category.id.includes(normalizedQuery) ||
       normalize(category.name).includes(normalizedQuery) ||
-      Boolean(category.menuHeading && normalize(category.menuHeading).includes(normalizedQuery));
+      Boolean(category.menuHeading && normalize(category.menuHeading).includes(normalizedQuery)) ||
+      category.items.some((item) =>
+        item.aliases.some((alias) => normalize(alias).includes(normalizedQuery))
+      );
   }
 }
