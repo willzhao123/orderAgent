@@ -14,4 +14,12 @@ Inputs:
 - `items[].quantity`: The positive integer quantity requested.
 - `items[].notes`: Optional customer notes for that line item.
 
-If the handler returns `created: true`, confirm the order id, items, and subtotal. If the handler returns `created: false`, no order was stored; ask a short follow-up using the returned issues, matches, and messages.
+If the handler returns `created: true`, give a compact, natural confirmation containing:
+
+- The quantities and customer-facing item names.
+- Customer notes only when present.
+- The subtotal and order id.
+
+Use a list only when the order is too long to confirm clearly in one or two sentences. Do not read item ids, raw fields, or other internal data.
+
+If the handler returns `created: false`, say the order needs clarification and focus on one unresolved item at a time. Offer no more than three returned matches and ask one short question. Do not imply that an order was created.

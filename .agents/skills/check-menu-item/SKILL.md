@@ -11,4 +11,6 @@ Inputs:
 
 - `item_name`: The food item the user is asking about.
 
-Return whether the item was found. If it was not found or the request is ambiguous, use the short matches, candidates, or category prompt returned by the handler.
+If the item is found, answer yes directly and use its customer-facing name. Include price, description, or other details only if the customer asked for them.
+
+If the request is ambiguous, mention no more than three returned matches and ask one short clarifying question. If it is not found, say so plainly and offer no more than two close returned matches. Never read a full category or menu in response.

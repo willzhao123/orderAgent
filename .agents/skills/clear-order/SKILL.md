@@ -11,4 +11,4 @@ Inputs:
 
 - `order_id`: The stored order id to clear.
 
-If the handler returns `cleared: true`, tell the customer the order is now empty. If the order is not found, use the returned message.
+If the handler returns `cleared: true`, confirm in one short sentence that the order is empty. Do not repeat the removed items or order id unless the customer asks. If the order is not found, explain that plainly without mentioning the handler or storage.

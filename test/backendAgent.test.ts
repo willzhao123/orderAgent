@@ -169,6 +169,15 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
   assert.match(systemPrompt, /list_food[\s\S]*mention no more than five broad category names/);
   assert.match(systemPrompt, /list_category_items[\s\S]*mention up to four item names/);
   assert.match(systemPrompt, /get_item_details[\s\S]*answer only what the customer asked about/i);
+  assert.match(systemPrompt, /add_item_to_order[\s\S]*Do not recap the full order/);
+  assert.match(systemPrompt, /answer_restaurant_faq[\s\S]*answer directly in one or two natural sentences/);
+  assert.match(systemPrompt, /check_menu_item[\s\S]*Never read a full category or menu/);
+  assert.match(systemPrompt, /clear_order[\s\S]*confirm in one short sentence/);
+  assert.match(systemPrompt, /create_order[\s\S]*focus on one unresolved item at a time/);
+  assert.match(systemPrompt, /quote_order_total[\s\S]*Do not call it a final total/);
+  assert.match(systemPrompt, /remove_order_item[\s\S]*Do not recap the remaining order/);
+  assert.match(systemPrompt, /summarize_order[\s\S]*natural spoken language/);
+  assert.match(systemPrompt, /update_order_item[\s\S]*confirm only the changed quantity or note/);
   assert.equal(
     "additionalProperties" in firstRequest.tools[0]!.functionDeclarations[0]!.parameters,
     false

@@ -11,4 +11,6 @@ Inputs:
 
 - `order_id`: The stored order id to summarize.
 
-If the handler returns `found: true`, summarize the items, quantities, notes, and subtotal. If the order is empty or missing, use the returned message.
+If the handler returns `found: true`, summarize customer-facing item names, quantities, notes, and subtotal in natural spoken language. Use one or two sentences for a short order and a compact list only when needed for clarity. Do not read line-item ids, raw fields, or empty values.
+
+If the order is empty or missing, say so in one short sentence without mentioning the handler or storage.

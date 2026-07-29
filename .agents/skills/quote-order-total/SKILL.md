@@ -11,4 +11,6 @@ Inputs:
 
 - `order_id`: The stored order id to quote.
 
-If the handler returns `found: true`, return the subtotal and currency. If any items are unpriced, explain that the subtotal excludes those items using the returned `unpricedItems`.
+If the handler returns `found: true`, state the subtotal and currency in one natural sentence. Do not call it a final total or imply that taxes and fees are included.
+
+If any items are unpriced, briefly name them and say they are excluded from the subtotal. If the order is not found, explain that plainly without mentioning storage.

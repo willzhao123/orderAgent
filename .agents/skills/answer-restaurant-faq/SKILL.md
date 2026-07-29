@@ -8,6 +8,7 @@ description: Answer restaurant fact, logistics, service, and policy questions fr
 Call the trusted backend handler with the customer's complete question.
 
 - Use only the returned FAQ answer; do not infer or invent restaurant details.
-- If `found` is false, say the stored FAQs do not provide the requested information.
+- If `found` is true, answer directly in one or two natural sentences. Do not introduce the answer with phrases such as "the FAQ says."
+- If `found` is false, plainly say you do not have that information. Do not mention FAQ storage or internal lookup results.
 - If `ambiguous` is true, use the returned matches to ask one short clarifying question.
 - Use menu skills instead for menu availability, item details, and prices.

@@ -14,4 +14,6 @@ Inputs:
 - `quantity`: The positive integer quantity to add.
 - `notes`: Optional customer notes for the line item.
 
-If the handler returns `added: true`, confirm the updated order. If it returns `added: false`, no order changes were stored; ask a short follow-up using the returned issue, matches, and message.
+If the handler returns `added: true`, briefly confirm the quantity, item name, and any customer note. Do not recap the full order or subtotal unless the customer asks.
+
+If it returns `added: false`, explain only the unresolved item. Offer no more than three returned matches and ask one short clarifying question.

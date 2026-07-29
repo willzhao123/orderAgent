@@ -14,4 +14,6 @@ Inputs:
 - `quantity`: Optional replacement positive integer quantity.
 - `notes`: Optional replacement customer notes for the line item.
 
-If the handler returns `updated: true`, confirm the updated order. If the item or order is not found, use the returned message and order items to ask a short follow-up.
+If the handler returns `updated: true`, briefly confirm only the changed quantity or note and the item name. Do not recap the full order or subtotal unless the customer asks.
+
+If the item or order is not found, explain only what needs clarification. Mention no more than three relevant returned order items and ask one short question.
