@@ -9,9 +9,12 @@ type SkillContext = {
   orderContext: OrderServiceContext;
 };
 
+export type SkillCategory = "faq" | "menu" | "order";
+
 export type SkillRegistryEntry = {
   name: string;
   codexName: string;
+  category: SkillCategory;
   parameters: Record<string, unknown>;
   usageInstruction: string;
   shouldUse: (message: string) => boolean;
@@ -257,6 +260,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   answer_restaurant_faq: {
     name: "answer_restaurant_faq",
     codexName: "answer-restaurant-faq",
+    category: "faq",
     parameters: {
       type: "object",
       properties: {
@@ -284,6 +288,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   check_menu_item: {
     name: "check_menu_item",
     codexName: "check-menu-item",
+    category: "menu",
     parameters: {
       type: "object",
       properties: {
@@ -305,6 +310,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   list_food: {
     name: "list_food",
     codexName: "list-food",
+    category: "menu",
     parameters: {
       type: "object",
       properties: {},
@@ -321,6 +327,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   list_category_items: {
     name: "list_category_items",
     codexName: "list-category-items",
+    category: "menu",
     parameters: {
       type: "object",
       properties: {
@@ -346,6 +353,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   get_item_details: {
     name: "get_item_details",
     codexName: "get-item-details",
+    category: "menu",
     parameters: {
       type: "object",
       properties: {
@@ -368,6 +376,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   create_order: {
     name: "create_order",
     codexName: "create-order",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -409,6 +418,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   add_item_to_order: {
     name: "add_item_to_order",
     codexName: "add-item-to-order",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -442,6 +452,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   update_order_item: {
     name: "update_order_item",
     codexName: "update-order-item",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -475,6 +486,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   remove_order_item: {
     name: "remove_order_item",
     codexName: "remove-order-item",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -500,6 +512,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   clear_order: {
     name: "clear_order",
     codexName: "clear-order",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -524,6 +537,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   summarize_order: {
     name: "summarize_order",
     codexName: "summarize-order",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -548,6 +562,7 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
   quote_order_total: {
     name: "quote_order_total",
     codexName: "quote-order-total",
+    category: "order",
     parameters: {
       type: "object",
       properties: {
@@ -575,10 +590,24 @@ export function getSkillRegistryEntry(name: string): SkillRegistryEntry | undefi
   return SKILL_REGISTRY[name];
 }
 
-export function skillUsageInstructions(): string[] {
-  return Object.values(SKILL_REGISTRY).map((entry) => entry.usageInstruction);
+function enabledEntries(enabledSkillNames?: Iterable<string>): SkillRegistryEntry[] {
+  if (!enabledSkillNames) return Object.values(SKILL_REGISTRY);
+  const enabled = new Set(enabledSkillNames);
+  return Object.values(SKILL_REGISTRY)
+    .filter((entry) => enabled.has(entry.name));
 }
 
-export function messageRequiresSkill(message: string): boolean {
-  return Object.values(SKILL_REGISTRY).some((entry) => entry.shouldUse(message));
+export function skillUsageInstructions(
+  enabledSkillNames?: Iterable<string>
+): string[] {
+  return enabledEntries(enabledSkillNames)
+    .map((entry) => entry.usageInstruction);
+}
+
+export function messageRequiresSkill(
+  message: string,
+  enabledSkillNames?: Iterable<string>
+): boolean {
+  return enabledEntries(enabledSkillNames)
+    .some((entry) => entry.shouldUse(message));
 }

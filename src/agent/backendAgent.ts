@@ -10,6 +10,7 @@ import { BackendDataStore } from "../persistence/backendDataStore.ts";
 import { MemorySessionStore, type SessionStore } from "../persistence/sessionStore.ts";
 import { SkillExecutor } from "../skills/skillExecutor.ts";
 import { loadSkills, type SkillDefinition } from "../skills/skillLoader.ts";
+import { loadSkillSettings } from "../skills/skillSettings.ts";
 import { ReceptionistBackend } from "./receptionistBackend.ts";
 
 export class BackendAgent {
@@ -47,6 +48,7 @@ export class BackendAgent {
     apiKey: string;
     model: string;
     skillsPath: string;
+    settingsPath?: string;
     menuPath: string;
     faqPath?: string;
     backendStatePath?: string;
@@ -56,7 +58,11 @@ export class BackendAgent {
     sessionStore?: SessionStore;
     orderStore?: OrderStore;
   }): Promise<BackendAgent> {
-    const skills = await loadSkills(options.skillsPath);
+    const settings = await loadSkillSettings(
+      options.settingsPath ??
+        fileURLToPath(new URL("../../data/settings.json", import.meta.url))
+    );
+    const skills = await loadSkills(options.skillsPath, settings);
     const menu = await loadMenu(options.menuPath);
     const faq = await loadRestaurantFaq(
       options.faqPath ?? fileURLToPath(new URL("../../data/restaurant-faq.json", import.meta.url))
@@ -78,10 +84,16 @@ export class BackendAgent {
       options.apiKey,
       options.model,
       skills,
-      new SkillExecutor(menuService, orderService, restaurantFaqService, {
-        businessId,
-        ...(options.locationId ? { locationId: options.locationId } : {})
-      }),
+      new SkillExecutor(
+        menuService,
+        orderService,
+        restaurantFaqService,
+        {
+          businessId,
+          ...(options.locationId ? { locationId: options.locationId } : {})
+        },
+        skills.map((skill) => skill.name)
+      ),
       options.fetcher ?? fetch,
       businessId,
       options.sessionStore ?? new MemorySessionStore(),

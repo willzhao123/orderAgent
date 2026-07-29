@@ -15,12 +15,14 @@ if (!apiKey || apiKey === "replace_with_your_key") {
 }
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
+const settingsPath = fileURLToPath(new URL("../data/settings.json", import.meta.url));
 const menuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
 const faqPath = fileURLToPath(new URL("../data/restaurant-faq.json", import.meta.url));
 const agent = await BackendAgent.create({
   apiKey,
   model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
   skillsPath,
+  settingsPath,
   menuPath,
   faqPath,
   sessionStore: new PostgresSessionStore(db),

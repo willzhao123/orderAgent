@@ -35,6 +35,24 @@ The Codex skills are:
 The backend exposes them to Gemini as function tools such as `check_menu_item`,
 `answer_restaurant_faq`, `list_food`, `create_order`, and `quote_order_total`.
 
+## Order skill setting
+
+FAQ and menu skills are always registered. Order skills can be turned on or off
+in `data/settings.json`:
+
+```json
+{
+  "skills": {
+    "order": false
+  }
+}
+```
+
+`true` registers all seven order skills; `false` removes them from the skills
+shown to Gemini and from local skill enforcement and execution. If `order` is
+omitted, it defaults to `true`. Restart the chat or HTTP service after changing
+the file.
+
 ## Source layout
 
 The two runnable entry points stay at the top of `src`; implementation code is

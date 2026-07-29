@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseSkillMarkdown } from "../src/skills/skillLoader.ts";
+import { fileURLToPath } from "node:url";
+import {
+  loadSkills,
+  parseSkillMarkdown
+} from "../src/skills/skillLoader.ts";
+import { parseSkillSettings } from "../src/skills/skillSettings.ts";
+
+const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 
 test("parseSkillMarkdown supports richer YAML frontmatter", () => {
   const skill = parseSkillMarkdown("/tmp/check-menu-item/SKILL.md", `---
@@ -40,5 +47,54 @@ description:
 # Check Menu Item
 `),
     /non-empty string description/
+  );
+});
+
+test("order settings disable only order skills", async () => {
+  const enabledSkills = await loadSkills(skillsPath, { order: true });
+  const disabledSkills = await loadSkills(skillsPath, { order: false });
+
+  assert.equal(enabledSkills.length, 12);
+  assert.equal(disabledSkills.length, 5);
+  assert.deepEqual(
+    new Set(disabledSkills.map((skill) => skill.category)),
+    new Set(["faq", "menu"])
+  );
+  assert.equal(
+    disabledSkills.some((skill) => skill.name === "answer_restaurant_faq"),
+    true
+  );
+  assert.equal(
+    disabledSkills.some((skill) => skill.name === "check_menu_item"),
+    true
+  );
+  assert.equal(
+    disabledSkills.some((skill) => skill.name === "create_order"),
+    false
+  );
+});
+
+test("parseSkillSettings defaults order on and validates its toggle", () => {
+  assert.deepEqual(
+    parseSkillSettings("/tmp/settings.json", '{"skills":{}}'),
+    { order: true }
+  );
+  assert.deepEqual(
+    parseSkillSettings("/tmp/settings.json", '{"skills":{"order":false}}'),
+    { order: false }
+  );
+  assert.throws(
+    () => parseSkillSettings(
+      "/tmp/settings.json",
+      '{"skills":{"order":"off"}}'
+    ),
+    /must be true or false/
+  );
+  assert.throws(
+    () => parseSkillSettings(
+      "/tmp/settings.json",
+      '{"skills":{"faq":false}}'
+    ),
+    /Unknown skill setting "faq"/
   );
 });

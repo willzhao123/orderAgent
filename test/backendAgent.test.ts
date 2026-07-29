@@ -31,6 +31,7 @@ async function createAgent(options: {
   responses: unknown[];
   requestBodies?: unknown[];
   menuPath?: string;
+  settingsPath?: string;
   backendStatePath?: string;
 }): Promise<BackendAgent> {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-state-"));
@@ -38,6 +39,7 @@ async function createAgent(options: {
     apiKey: "test-key",
     model: "test-model",
     skillsPath,
+    ...(options.settingsPath ? { settingsPath: options.settingsPath } : {}),
     menuPath: options.menuPath ?? defaultMenuPath,
     backendStatePath: options.backendStatePath ?? join(tempDir, "backend-state.json"),
     fetcher: fakeFetchWith(options.responses, options.requestBodies)
@@ -202,6 +204,49 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
       price: 15
     }
   });
+});
+
+test("keeps FAQ and menu skills available when order skills are off", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-settings-"));
+  const settingsPath = join(tempDir, "settings.json");
+  await writeFile(settingsPath, JSON.stringify({
+    skills: { order: false }
+  }));
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    settingsPath,
+    requestBodies,
+    responses: [textResponse("Ordering is currently unavailable.")]
+  });
+
+  assert.match(agent.describeSkills(), /5 skills/);
+  assert.match(agent.describeSkills(), /answer_restaurant_faq/);
+  assert.match(agent.describeSkills(), /check_menu_item/);
+  assert.doesNotMatch(agent.describeSkills(), /create_order/);
+  assert.doesNotMatch(agent.describeSkills(), /quote_order_total/);
+
+  const reply = await agent.chat("I want to place an order.");
+  assert.equal(reply, "Ordering is currently unavailable.");
+
+  const request = requestBodies[0] as {
+    systemInstruction: { parts: Array<{ text: string }> };
+    tools: Array<{
+      functionDeclarations: Array<{ name: string }>;
+    }>;
+  };
+  const registeredNames = request.tools[0]!.functionDeclarations
+    .map((declaration) => declaration.name);
+  assert.deepEqual(new Set(registeredNames), new Set([
+    "answer_restaurant_faq",
+    "check_menu_item",
+    "list_food",
+    "list_category_items",
+    "get_item_details"
+  ]));
+  assert.doesNotMatch(
+    request.systemInstruction.parts[0]!.text,
+    /create_order from/
+  );
 });
 
 test("executes answer_restaurant_faq using the static FAQ store", async () => {

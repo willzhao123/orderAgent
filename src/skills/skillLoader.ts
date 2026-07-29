@@ -1,11 +1,19 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { getSkillRegistryEntry } from "./skillRegistry.ts";
+import {
+  getSkillRegistryEntry,
+  type SkillCategory
+} from "./skillRegistry.ts";
+import {
+  DEFAULT_SKILL_SETTINGS,
+  type SkillSettings
+} from "./skillSettings.ts";
 
 export type SkillDefinition = {
   name: string;
   codexName: string;
+  category: SkillCategory;
   description: string;
   parameters: Record<string, unknown>;
   instructions: string;
@@ -64,6 +72,7 @@ export function parseSkillMarkdown(sourcePath: string, contents: string): SkillD
   return {
     name,
     codexName,
+    category: registryEntry.category,
     description,
     parameters: registryEntry.parameters,
     instructions,
@@ -71,7 +80,10 @@ export function parseSkillMarkdown(sourcePath: string, contents: string): SkillD
   };
 }
 
-export async function loadSkills(skillsPath: string): Promise<SkillDefinition[]> {
+export async function loadSkills(
+  skillsPath: string,
+  settings: SkillSettings = DEFAULT_SKILL_SETTINGS
+): Promise<SkillDefinition[]> {
   const entries = await readdir(skillsPath, { withFileTypes: true });
   const skills = await Promise.all(
     entries
@@ -86,5 +98,7 @@ export async function loadSkills(skillsPath: string): Promise<SkillDefinition[]>
     throw new Error("This experiment expects at least 1 skill; found 0.");
   }
 
-  return skills;
+  return skills.filter(
+    (skill) => skill.category !== "order" || settings.order
+  );
 }
