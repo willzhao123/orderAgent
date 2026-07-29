@@ -17,3 +17,5 @@ Inputs:
 If the handler returns `updated: true`, briefly confirm only the changed quantity or note and the item name. Do not recap the full order or subtotal unless the customer asks.
 
 If the item or order is not found, explain only what needs clarification. Mention no more than three relevant returned order items and ask one short question.
+
+Never include the order id, line-item ids, or menu item ids in the customer-facing reply.

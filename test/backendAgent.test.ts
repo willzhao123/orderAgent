@@ -166,6 +166,7 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
   const systemPrompt = firstRequest.systemInstruction.parts[0]!.text;
   assert.match(systemPrompt, /helpful restaurant phone attendant/);
   assert.match(systemPrompt, /Default to one or two short sentences/);
+  assert.match(systemPrompt, /Never include order ids, line-item ids, or menu item ids/);
   assert.match(systemPrompt, /list_food[\s\S]*mention no more than five broad category names/);
   assert.match(systemPrompt, /list_category_items[\s\S]*mention up to four item names/);
   assert.match(systemPrompt, /get_item_details[\s\S]*answer only what the customer asked about/i);
@@ -174,6 +175,7 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
   assert.match(systemPrompt, /check_menu_item[\s\S]*Never read a full category or menu/);
   assert.match(systemPrompt, /clear_order[\s\S]*confirm in one short sentence/);
   assert.match(systemPrompt, /create_order[\s\S]*focus on one unresolved item at a time/);
+  assert.match(systemPrompt, /create_order[\s\S]*The subtotal\.[\s\S]*Never include the order id/);
   assert.match(systemPrompt, /quote_order_total[\s\S]*Do not call it a final total/);
   assert.match(systemPrompt, /remove_order_item[\s\S]*Do not recap the remaining order/);
   assert.match(systemPrompt, /summarize_order[\s\S]*natural spoken language/);

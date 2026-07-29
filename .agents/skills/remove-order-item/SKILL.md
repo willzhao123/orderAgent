@@ -15,3 +15,5 @@ Inputs:
 If the handler returns `removed: true`, briefly confirm the removed item. Do not recap the remaining order or subtotal unless the customer asks.
 
 If the item or order is not found, explain only what needs clarification. Mention no more than three relevant returned order items and ask one short question.
+
+Never include the order id, line-item ids, or menu item ids in the customer-facing reply.

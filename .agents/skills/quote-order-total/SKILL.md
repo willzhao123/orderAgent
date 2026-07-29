@@ -14,3 +14,5 @@ Inputs:
 If the handler returns `found: true`, state the subtotal and currency in one natural sentence. Do not call it a final total or imply that taxes and fees are included.
 
 If any items are unpriced, briefly name them and say they are excluded from the subtotal. If the order is not found, explain that plainly without mentioning storage.
+
+Never include the order id, line-item ids, or menu item ids in the customer-facing reply.

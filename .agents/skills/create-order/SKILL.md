@@ -18,8 +18,8 @@ If the handler returns `created: true`, give a compact, natural confirmation con
 
 - The quantities and customer-facing item names.
 - Customer notes only when present.
-- The subtotal and order id.
+- The subtotal.
 
-Use a list only when the order is too long to confirm clearly in one or two sentences. Do not read item ids, raw fields, or other internal data.
+Use a list only when the order is too long to confirm clearly in one or two sentences. Never include the order id, line-item ids, menu item ids, raw fields, or other internal data in the customer-facing reply.
 
 If the handler returns `created: false`, say the order needs clarification and focus on one unresolved item at a time. Offer no more than three returned matches and ask one short question. Do not imply that an order was created.

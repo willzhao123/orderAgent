@@ -17,3 +17,5 @@ Inputs:
 If the handler returns `added: true`, briefly confirm the quantity, item name, and any customer note. Do not recap the full order or subtotal unless the customer asks.
 
 If it returns `added: false`, explain only the unresolved item. Offer no more than three returned matches and ask one short clarifying question.
+
+Never include the order id, line-item ids, or menu item ids in the customer-facing reply.
