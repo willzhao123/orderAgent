@@ -160,8 +160,15 @@ test("loads skills, discovers one, executes it, and returns the final reply", as
   assert.equal(requestBodies.length, 2);
 
   const firstRequest = requestBodies[0] as {
+    systemInstruction: { parts: Array<{ text: string }> };
     tools: Array<{ functionDeclarations: Array<{ parameters: Record<string, unknown> }> }>;
   };
+  const systemPrompt = firstRequest.systemInstruction.parts[0]!.text;
+  assert.match(systemPrompt, /helpful restaurant phone attendant/);
+  assert.match(systemPrompt, /Default to one or two short sentences/);
+  assert.match(systemPrompt, /list_food[\s\S]*mention no more than five broad category names/);
+  assert.match(systemPrompt, /list_category_items[\s\S]*mention up to four item names/);
+  assert.match(systemPrompt, /get_item_details[\s\S]*answer only what the customer asked about/i);
   assert.equal(
     "additionalProperties" in firstRequest.tools[0]!.functionDeclarations[0]!.parameters,
     false

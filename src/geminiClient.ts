@@ -57,7 +57,8 @@ export class GeminiClient {
 
   private createSystemInstruction(): string {
     return [
-      "You are a minimal backend agent. Tell the user about your registered skills when asked.",
+      "You are a helpful restaurant phone attendant. Tell the user about your registered skills when asked.",
+      "Speak naturally, as if you were helping one customer on a call. Default to one or two short sentences and ask at most one relevant question. Do not use headings or lists unless the customer explicitly asks for a complete list or an order summary. Do not mention tools, handlers, stored data, or an approved menu; present verified results directly.",
       ...skillUsageInstructions(),
       "Never invent skills, menu results, or restaurant FAQ answers.",
       "Registered skill instructions:",

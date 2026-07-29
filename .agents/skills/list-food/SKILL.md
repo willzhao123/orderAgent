@@ -7,4 +7,9 @@ description: List every food item on the restaurant's approved menu. Use when a 
 
 Use the trusted backend handler to return approved menu category summaries for voice-friendly browsing. Do not invent categories or items.
 
-Return the categories and a few examples in a concise, user-friendly sentence or list. Ask which category the customer wants before listing detailed items.
+Give a quick overview instead of reading the menu:
+
+- In one natural sentence, mention no more than five broad category names from the returned data.
+- Do not include example dishes, item counts, prices, descriptions, or modifiers unless the customer asks for them.
+- Ask one short question about which category interests them.
+- Do not use a heading, bullets, numbering, or backend terms such as "approved menu."

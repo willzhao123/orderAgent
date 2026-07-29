@@ -11,4 +11,12 @@ Inputs:
 
 - `category`: The category id or category name the customer selected.
 
-If the category is found, return that category's items with item ids and customer-facing details. If the category is ambiguous or not found, use the candidate categories returned by the handler and ask a short follow-up.
+If the category is found:
+
+- By default, mention up to four item names in one natural sentence, then ask whether the customer wants more options.
+- If the customer explicitly asks for every option, give every item name concisely.
+- Include prices, Vietnamese names, descriptions, shared accompaniments, and modifiers only when the customer asks for those details.
+- Never read item ids or raw field names aloud.
+- Do not use a heading, bullets, or numbering unless the customer explicitly asks for a list.
+
+If the category is ambiguous or not found, use the returned candidate categories and ask one short clarifying question.
