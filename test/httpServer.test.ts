@@ -17,6 +17,9 @@ const bearerToken = "test-backend-token";
 const authorization = { authorization: `Bearer ${bearerToken}` };
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const menuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
+const allSkillsSettingsPath = fileURLToPath(
+  new URL("./fixtures/all-skills-settings.json", import.meta.url)
+);
 
 class TestExternalSessionStore
   extends MemorySessionStore
@@ -310,6 +313,7 @@ test("preserves a draft order across two HTTP turns", async (t) => {
     apiKey: "test-key",
     model: "test-model",
     skillsPath,
+    settingsPath: allSkillsSettingsPath,
     menuPath,
     backendStatePath,
     sessionStore,

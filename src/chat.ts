@@ -17,7 +17,7 @@ if (!apiKey || apiKey === "replace_with_your_key") {
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const settingsPath = fileURLToPath(new URL("../data/settings.json", import.meta.url));
 const menuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
-const faqPath = fileURLToPath(new URL("../data/restaurant-faq.json", import.meta.url));
+const faqPath = fileURLToPath(new URL("../data/faq.json", import.meta.url));
 const agent = await BackendAgent.create({
   apiKey,
   model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
@@ -25,6 +25,8 @@ const agent = await BackendAgent.create({
   settingsPath,
   menuPath,
   faqPath,
+  faqFallbackEnabled:
+    process.env.BACKEND_FAQ_FALLBACK_ENABLED === "true",
   sessionStore: new PostgresSessionStore(db),
   orderStore: new PostgresOrderStore(db),
   businessId: process.env.BUSINESS_ID ?? "business_0001",

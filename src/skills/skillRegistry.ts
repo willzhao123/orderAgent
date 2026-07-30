@@ -5,7 +5,7 @@ import type { OrderService, OrderServiceContext, RequestedOrderItem } from "../o
 type SkillContext = {
   menuService: MenuService;
   orderService: OrderService;
-  restaurantFaqService: RestaurantFaqService;
+  restaurantFaqService?: RestaurantFaqService;
   orderContext: OrderServiceContext;
 };
 
@@ -246,6 +246,9 @@ function answerRestaurantFaq(
   if (typeof input.question !== "string" || !input.question.trim()) {
     throw new Error("answer_restaurant_faq requires a non-empty string question.");
   }
+  if (!context.restaurantFaqService) {
+    throw new Error("Backend FAQ fallback is disabled.");
+  }
 
   return context.restaurantFaqService.answerQuestion(input.question.trim());
 }
@@ -272,16 +275,19 @@ export const SKILL_REGISTRY: Record<string, SkillRegistryEntry> = {
       required: ["question"],
       additionalProperties: false
     },
-    usageInstruction: "Use answer_restaurant_faq for questions about restaurant facts, cuisine, hours, location, reservations, parking, service options, accessibility, or policies. Use menu skills for food items and prices.",
+    usageInstruction: "Use answer_restaurant_faq only as an enabled fallback for approved static restaurant facts such as cuisine, regular location details, reservations, parking, accessibility, or stable policies. Use menu and transactional backend skills for prices, item availability, orders, payments, and customer information.",
     shouldUse: (message) => {
-      const faqIntent = /\b(faq|restaurant|cuisine|hours?|open|close[ds]?|location|located|address|parking|reservations?|catering|delivery|pickup|accessib(?:le|ility)|policy|policies|payment|credit cards?|wifi|dress code)\b/i
+      const faqIntent = /\b(faq|restaurant|cuisine|hours?|open|location|located|address|parking|reservations?|catering|delivery|pickup|accessib(?:le|ility)|policy|policies|wifi|dress code)\b/i
         .test(message);
-      const explicitMenuQuestion = /\b(menu item|food item|order total)\b/i.test(message) ||
+      const dynamicQuestion =
+        /\b(order|orders|ordering|payment|payments|pay|credit cards?|customer (?:information|data)|phone number|email address|temporar(?:y|ily) clos(?:ed|ure)|closed today)\b/i
+          .test(message);
+      const explicitMenuQuestion = /\b(menu item|food item|order total|sold out|in stock)\b/i.test(message) ||
         (
           /\b(price|cost|how much)\b/i.test(message) &&
           /\b(menu|dish|item|pho|salad|rice|noodle|soup|rolls?)\b/i.test(message)
         );
-      return faqIntent && !explicitMenuQuestion;
+      return faqIntent && !dynamicQuestion && !explicitMenuQuestion;
     },
     execute: answerRestaurantFaq
   },

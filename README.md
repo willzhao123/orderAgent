@@ -3,8 +3,8 @@
 This experiment tests a small backend skill loop:
 
 1. The backend agent loads Codex-style skills from `.agents/skills`.
-2. It loads the approved menu from `data/menu.json` and restaurant FAQs from
-   `data/restaurant-faq.json`.
+2. It loads the approved menu from `data/menu.json`. The voice deployment
+   bundles static FAQs from `data/faq.json`; backend FAQ lookup is opt-in.
 3. It tells you which skills it has.
 4. During chat, it discovers and calls the right skill.
 5. It stores chat sessions, Gemini history, draft orders, and order items in
@@ -13,9 +13,10 @@ This experiment tests a small backend skill loop:
 The approved menu remains in `data/menu.json`; menu data is not stored in
 Postgres.
 
-Restaurant FAQ answers remain in `data/restaurant-faq.json`; FAQ data is not
-stored in Postgres. Add entries with an `id`, `question`, `answer`, and optional
-`category`, `aliases`, and `keywords`.
+`data/faq.json` is the single handwritten source of truth for static FAQs. It
+contains a schema version, semantic content version, stable FAQ and category
+IDs, question variations, and approved voice answers. Do not maintain a second
+FAQ copy in the voice agent.
 
 The Codex skills are:
 
@@ -37,8 +38,8 @@ The backend exposes them to Gemini as function tools such as `check_menu_item`,
 
 ## Order skill setting
 
-FAQ and menu skills are always registered. Order skills can be turned on or off
-in `data/settings.json`:
+Menu skills are always registered. Order skills can be turned on or off in
+`data/settings.json`:
 
 ```json
 {
@@ -52,6 +53,34 @@ in `data/settings.json`:
 shown to Gemini and from local skill enforcement and execution. If `order` is
 omitted, it defaults to `true`. Restart the chat or HTTP service after changing
 the file.
+
+## Static FAQ bundle
+
+Build the validated FAQ artifact directly into a voice deployment:
+
+```bash
+npm run bundle:faq -- /path/to/voice-build/faq.json
+```
+
+The bundle command validates and copies the canonical `data/faq.json`; its
+output is generated deployment material, not another maintained source. The
+voice agent should match FAQ questions locally and speak only
+`approved_answer`. Successful lookup results include the FAQ content version,
+stable FAQ ID, category, and concise answer.
+
+Static FAQs must not contain current prices, item availability, temporary
+closures, orders, payments, or customer information. Those remain dynamic or
+transactional and must use backend skills.
+
+Backend FAQ handling is an optional fallback and is disabled by default. Enable
+it only when needed:
+
+```text
+BACKEND_FAQ_FALLBACK_ENABLED=true
+```
+
+When disabled, `answer_restaurant_faq` is not registered with Gemini and the
+backend does not load the FAQ file.
 
 ## Source layout
 
@@ -88,6 +117,7 @@ GEMINI_MODEL=gemini-3.6-flash
 DATABASE_URL=postgresql://localhost:5432/order_agent
 PORT=3000
 BACKEND_BEARER_TOKEN=replace_with_a_long_random_token
+BACKEND_FAQ_FALLBACK_ENABLED=false
 ```
 
 Create the local database if needed, then apply the schema:
@@ -184,20 +214,31 @@ When the model selects a skill, the terminal prints:
 [discovered skill: check_menu_item]
 ```
 
-The implementation uses Gemini function calling:
+The voice-first FAQ path has no runtime backend dependency:
 
 ```text
-user message
-  -> backend loads .agents/skills/*/SKILL.md
-  -> backend loads data/menu.json
-  -> backend loads data/restaurant-faq.json
+voice deployment build
+  -> validates and bundles data/faq.json
+caller asks a static FAQ
+  -> voice agent matches the bundled question variations
+  -> voice agent speaks the approved answer
+```
+
+Dynamic and transactional requests continue through Gemini function calling:
+
+```text
+caller request
+  -> backend loads .agents/skills/*/SKILL.md and data/menu.json
   -> backend reconstructs this session's Gemini history from Postgres
   -> model sees the skills as function tools
-  -> model calls a trusted skill such as answer_restaurant_faq, check_menu_item, or create_order
-  -> local handler returns the FAQ/menu result or Postgres-backed draft order
+  -> model calls a trusted skill such as check_menu_item or create_order
+  -> local handler returns the menu result or Postgres-backed draft order
   -> model gives the final reply
   -> user, model, and tool messages are appended to Postgres
 ```
+
+If backend FAQ fallback is explicitly enabled, it reads that same
+`data/faq.json`; no separate FAQ content is maintained.
 
 Official reference:
 

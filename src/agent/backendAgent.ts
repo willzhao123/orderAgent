@@ -51,6 +51,7 @@ export class BackendAgent {
     settingsPath?: string;
     menuPath: string;
     faqPath?: string;
+    faqFallbackEnabled?: boolean;
     backendStatePath?: string;
     businessId?: string;
     locationId?: string;
@@ -62,13 +63,21 @@ export class BackendAgent {
       options.settingsPath ??
         fileURLToPath(new URL("../../data/settings.json", import.meta.url))
     );
-    const skills = await loadSkills(options.skillsPath, settings);
+    const faqFallbackEnabled = options.faqFallbackEnabled ?? false;
+    const loadedSkills = await loadSkills(options.skillsPath, settings);
+    const skills = faqFallbackEnabled
+      ? loadedSkills
+      : loadedSkills.filter((skill) => skill.name !== "answer_restaurant_faq");
     const menu = await loadMenu(options.menuPath);
-    const faq = await loadRestaurantFaq(
-      options.faqPath ?? fileURLToPath(new URL("../../data/restaurant-faq.json", import.meta.url))
-    );
     const menuService = new MenuService(menu);
-    const restaurantFaqService = new RestaurantFaqService(faq);
+    const restaurantFaqService = faqFallbackEnabled
+      ? new RestaurantFaqService(
+          await loadRestaurantFaq(
+            options.faqPath ??
+              fileURLToPath(new URL("../../data/faq.json", import.meta.url))
+          )
+        )
+      : undefined;
     const backendStatePath = options.backendStatePath ?? "data/backend-state.json";
     const backendDataStore = new BackendDataStore(backendStatePath);
     const receptionistBackend = options.backendStatePath

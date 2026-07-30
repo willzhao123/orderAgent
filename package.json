@@ -7,6 +7,7 @@
     "node": ">=22.6 <25"
   },
   "scripts": {
+    "bundle:faq": "node --experimental-strip-types scripts/bundleFaq.ts",
     "chat": "node --env-file-if-exists=.env --experimental-strip-types src/chat.ts",
     "start": "node --experimental-strip-types src/server.ts",
     "test": "node --experimental-strip-types --test test/*.test.ts"

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "restaurant": {
+    "id": "haiyen-restaurant",
+    "name": "Haiyen Restaurant"
+  },
+  "content_policy": {
+    "scope": "static",
+    "excluded_topics": [
+      "current_prices",
+      "item_availability",
+      "temporary_closures",
+      "orders",
+      "payments",
+      "customer_information"
+    ]
+  },
+  "categories": [
+    {
+      "id": "general",
+      "label": "General"
+    }
+  ],
+  "faqs": [
+    {
+      "id": "faq.general.cuisine",
+      "category_id": "general",
+      "questions": [
+        "What kind of cuisine do you serve?",
+        "What type of food do you serve?",
+        "What cuisine is the restaurant?",
+        "Is this a Vietnamese restaurant?"
+      ],
+      "approved_answer": "Haiyen Restaurant serves Vietnamese cuisine.",
+      "search_terms": [
+        "cuisine",
+        "Vietnamese food"
+      ]
+    }
+  ]
+}

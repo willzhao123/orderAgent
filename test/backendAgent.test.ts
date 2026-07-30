@@ -9,6 +9,9 @@ import { BackendDataStore } from "../src/persistence/backendDataStore.ts";
 
 const skillsPath = fileURLToPath(new URL("../.agents/skills", import.meta.url));
 const defaultMenuPath = fileURLToPath(new URL("../data/menu.json", import.meta.url));
+const allSkillsSettingsPath = fileURLToPath(
+  new URL("./fixtures/all-skills-settings.json", import.meta.url)
+);
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), {
@@ -33,14 +36,16 @@ async function createAgent(options: {
   menuPath?: string;
   settingsPath?: string;
   backendStatePath?: string;
+  faqFallbackEnabled?: boolean;
 }): Promise<BackendAgent> {
   const tempDir = await mkdtemp(join(tmpdir(), "backend-skill-chat-state-"));
   return BackendAgent.create({
     apiKey: "test-key",
     model: "test-model",
     skillsPath,
-    ...(options.settingsPath ? { settingsPath: options.settingsPath } : {}),
+    settingsPath: options.settingsPath ?? allSkillsSettingsPath,
     menuPath: options.menuPath ?? defaultMenuPath,
+    faqFallbackEnabled: options.faqFallbackEnabled ?? true,
     backendStatePath: options.backendStatePath ?? join(tempDir, "backend-state.json"),
     fetcher: fakeFetchWith(options.responses, options.requestBodies)
   });
@@ -249,6 +254,31 @@ test("keeps FAQ and menu skills available when order skills are off", async () =
   );
 });
 
+test("removes backend FAQ handling unless fallback is enabled", async () => {
+  const requestBodies: unknown[] = [];
+  const agent = await createAgent({
+    faqFallbackEnabled: false,
+    requestBodies,
+    responses: [textResponse("Hello!")]
+  });
+
+  assert.match(agent.describeSkills(), /11 skills/);
+  assert.doesNotMatch(agent.describeSkills(), /answer_restaurant_faq/);
+  assert.equal(await agent.chat("Hello"), "Hello!");
+
+  const request = requestBodies[0] as {
+    tools: Array<{
+      functionDeclarations: Array<{ name: string }>;
+    }>;
+  };
+  assert.equal(
+    request.tools[0]!.functionDeclarations.some(
+      ({ name }) => name === "answer_restaurant_faq"
+    ),
+    false
+  );
+});
+
 test("executes answer_restaurant_faq using the static FAQ store", async () => {
   const requestBodies: unknown[] = [];
   const agent = await createAgent({
@@ -271,10 +301,14 @@ test("executes answer_restaurant_faq using the static FAQ store", async () => {
   assert.deepEqual(lastFunctionResponse(requestBodies).response, {
     found: true,
     ambiguous: false,
+    source: "static_faq",
+    version: "1.0.0",
     faq: {
-      id: "cuisine",
-      category: "General",
-      question: "What kind of cuisine do you serve?",
+      id: "faq.general.cuisine",
+      category: {
+        id: "general",
+        label: "General"
+      },
       answer: "Haiyen Restaurant serves Vietnamese cuisine."
     }
   });

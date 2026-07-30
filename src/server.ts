@@ -32,7 +32,9 @@ const server = createServer(async (request, response) => {
         apiKey,
         model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
         skillsPath,
-        menuPath
+        menuPath,
+        faqFallbackEnabled:
+          process.env.BACKEND_FAQ_FALLBACK_ENABLED === "true"
       });
 
       const reply = await agent.chat(message);

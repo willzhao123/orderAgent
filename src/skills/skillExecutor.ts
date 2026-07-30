@@ -10,14 +10,14 @@ import {
 export class SkillExecutor {
   private readonly menuService: MenuService;
   private readonly orderService: OrderService;
-  private readonly restaurantFaqService: RestaurantFaqService;
+  private readonly restaurantFaqService?: RestaurantFaqService;
   private readonly defaultOrderContext: OrderServiceContext;
   private readonly enabledSkillNames: Set<string>;
 
   constructor(
     menuService: MenuService,
     orderService: OrderService,
-    restaurantFaqService: RestaurantFaqService,
+    restaurantFaqService: RestaurantFaqService | undefined,
     defaultOrderContext: OrderServiceContext,
     enabledSkillNames?: Iterable<string>
   ) {

@@ -1,4 +1,8 @@
-import type { RestaurantFaq, RestaurantFaqEntry } from "./restaurantFaq.ts";
+import type {
+  RestaurantFaq,
+  RestaurantFaqCategory,
+  RestaurantFaqEntry
+} from "./restaurantFaq.ts";
 
 /** Common words that should not influence FAQ matching. */
 const STOP_WORDS = new Set([
@@ -23,22 +27,30 @@ function tokens(value: string): string[] {
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
 }
 
-function searchValues(entry: RestaurantFaqEntry): string[] {
+function searchValues(
+  entry: RestaurantFaqEntry,
+  category: RestaurantFaqCategory
+): string[] {
   return [
     entry.id,
-    entry.question,
-    ...entry.aliases,
-    ...entry.keywords,
-    ...(entry.category ? [entry.category] : [])
+    ...entry.questions,
+    ...entry.searchTerms,
+    category.id,
+    category.label
   ];
 }
 
-function summarize(entry: RestaurantFaqEntry): Record<string, unknown> {
+function summarize(
+  entry: RestaurantFaqEntry,
+  category: RestaurantFaqCategory
+): Record<string, unknown> {
   return {
     id: entry.id,
-    ...(entry.category ? { category: entry.category } : {}),
-    question: entry.question,
-    answer: entry.answer
+    category: {
+      id: category.id,
+      label: category.label
+    },
+    answer: entry.approvedAnswer
   };
 }
 
@@ -52,10 +64,18 @@ export class RestaurantFaqService {
   answerQuestion(question: string): Record<string, unknown> {
     const normalizedQuestion = normalize(question);
     const exactMatches = this.faq.entries.filter((entry) =>
-      searchValues(entry).some((value) => normalize(value) === normalizedQuestion)
+      searchValues(entry, this.categoryFor(entry))
+        .some((value) => normalize(value) === normalizedQuestion)
     );
     if (exactMatches.length === 1) {
-      return { found: true, ambiguous: false, faq: summarize(exactMatches[0]!) };
+      const entry = exactMatches[0]!;
+      return {
+        found: true,
+        ambiguous: false,
+        source: "static_faq",
+        version: this.faq.version,
+        faq: summarize(entry, this.categoryFor(entry))
+      };
     }
     if (exactMatches.length > 1) {
       return this.ambiguousResult(question, exactMatches);
@@ -64,9 +84,10 @@ export class RestaurantFaqService {
     const questionTokens = new Set(tokens(question));
     const ranked = this.faq.entries
       .map((entry) => {
-        const entryTokens = new Set(searchValues(entry).flatMap(tokens));
+        const values = searchValues(entry, this.categoryFor(entry));
+        const entryTokens = new Set(values.flatMap(tokens));
         const overlap = [...questionTokens].filter((token) => entryTokens.has(token)).length;
-        const phraseMatch = searchValues(entry).some((value) => {
+        const phraseMatch = values.some((value) => {
           const normalizedValue = normalize(value);
           return normalizedValue.length >= 4 &&
             (
@@ -83,8 +104,10 @@ export class RestaurantFaqService {
       return {
         found: false,
         ambiguous: false,
+        source: "static_faq",
+        version: this.faq.version,
         question,
-        message: "No matching restaurant FAQ was found. Say that the stored FAQs do not provide this information."
+        reason: "not_found"
       };
     }
 
@@ -96,7 +119,14 @@ export class RestaurantFaqService {
       return this.ambiguousResult(question, topMatches);
     }
 
-    return { found: true, ambiguous: false, faq: summarize(topMatches[0]!) };
+    const entry = topMatches[0]!;
+    return {
+      found: true,
+      ambiguous: false,
+      source: "static_faq",
+      version: this.faq.version,
+      faq: summarize(entry, this.categoryFor(entry))
+    };
   }
 
   private ambiguousResult(
@@ -106,13 +136,19 @@ export class RestaurantFaqService {
     return {
       found: false,
       ambiguous: true,
+      source: "static_faq",
+      version: this.faq.version,
       question,
       matches: entries.slice(0, 5).map((entry) => ({
         id: entry.id,
-        ...(entry.category ? { category: entry.category } : {}),
-        question: entry.question
+        category: this.categoryFor(entry),
+        question: entry.questions[0]
       })),
-      message: "Multiple restaurant FAQs match. Ask a short clarifying question."
+      reason: "multiple_matches"
     };
+  }
+
+  private categoryFor(entry: RestaurantFaqEntry): RestaurantFaqCategory {
+    return this.faq.categories.find(({ id }) => id === entry.categoryId)!;
   }
 }
