@@ -36,7 +36,10 @@ const server = createServer(async (request, response) => {
       });
 
       const reply = await agent.chat(message);
-      response.end(JSON.stringify({ reply }));
+      response.end(JSON.stringify({
+        reply,
+        response: reply
+      }));
     } catch (error) {
       response.statusCode = 500;
       response.end(JSON.stringify({
